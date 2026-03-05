@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IIT Ropar – Campus Road Network Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f172a;
+        }
+
+        #map {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Header overlay */
+        #header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 24px;
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        #header .title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #header .logo { font-size: 28px; }
+
+        #header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #f1f5f9;
+            letter-spacing: -0.3px;
+        }
+
+        #header .subtitle {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        #header .controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .ctrl-btn {
+            padding: 7px 14px;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.06);
+            color: #e2e8f0;
+            font-size: 13px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .ctrl-btn:hover {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        .ctrl-btn.active {
+            background: rgba(59, 130, 246, 0.25);
+            border-color: #3b82f6;
+            color: #93c5fd;
+        }
+
+        /* Legend panel */
+        #legend {
+            position: fixed;
+            bottom: 30px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 16px 20px;
+            min-width: 200px;
+        }
+
+        #legend h4 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #cbd5e1;
+        }
+
+        .legend-item:last-child { margin-bottom: 0; }
+
+        .legend-line {
+            width: 28px;
+            height: 4px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        /* Stats panel */
+        #stats {
+            position: fixed;
+            bottom: 30px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 16px 20px;
+            min-width: 180px;
+        }
+
+        #stats h4 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        .stat-row:last-child { margin-bottom: 0; }
+
+        .stat-label { color: #94a3b8; }
+        .stat-value { color: #f1f5f9; font-weight: 600; }
+
+        /* Popup styling */
+        .leaflet-popup-content-wrapper {
+            background: rgba(15, 23, 42, 0.95);
+            color: #e2e8f0;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.12);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .leaflet-popup-content {
+            margin: 12px 16px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .leaflet-popup-content strong {
+            color: #93c5fd;
+        }
+
+        .leaflet-popup-tip {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+
+        /* Tooltip styling */
+        .road-tooltip {
+            background: rgba(15, 23, 42, 0.9) !important;
+            color: #e2e8f0 !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            border-radius: 6px !important;
+            padding: 4px 10px !important;
+            font-size: 12px !important;
+            font-family: 'Inter', sans-serif !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+        }
+
+        .road-tooltip::before {
+            border-top-color: rgba(15, 23, 42, 0.9) !important;
+        }
+
+        @media (max-width: 768px) {
+            #header { padding: 10px 14px; }
+            #header h1 { font-size: 14px; }
+            #header .controls { gap: 4px; }
+            .ctrl-btn { padding: 5px 10px; font-size: 11px; }
+            #legend, #stats { padding: 12px 14px; min-width: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="header">
+    <div class="title-group">
+        <span class="logo">🗺️</span>
+        <div>
+            <h1>IIT Ropar – Campus Road Network</h1>
+            <p class="subtitle">Indian Institute of Technology Ropar, Punjab</p>
+        </div>
+    </div>
+    <div class="controls">
+        <button class="ctrl-btn active" id="btnAll" data-layer="all">All Roads</button>
+        <button class="ctrl-btn" id="btnTertiary" data-layer="tertiary">Tertiary</button>
+        <button class="ctrl-btn" id="btnService" data-layer="service">Service</button>
+        <button class="ctrl-btn" id="btnPath" data-layer="path">Paths</button>
+        <button class="ctrl-btn" id="btnOther" data-layer="other">Other</button>
+        <button class="ctrl-btn" id="btnSatellite">🛰️ Satellite</button>
+        <button class="ctrl-btn" id="btnFitBounds">📍 Fit View</button>
+    </div>
+</div>
+
+<div id="legend">
+    <h4>Road Types</h4>
+    <div class="legend-item">
+        <div class="legend-line" style="background:#f59e0b;"></div>
+        Tertiary Road
+    </div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:#3b82f6;"></div>
+        Service Road
+    </div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:#10b981; border-style: dashed; height:0; border-top-width:4px;"></div>
+        Path / Footway
+    </div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:#a855f7;"></div>
+        Track
+    </div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:#ef4444;"></div>
+        Raceway
+    </div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:#6b7280;"></div>
+        Unclassified
+    </div>
+</div>
+
+<div id="stats">
+    <h4>Network Stats</h4>
+    <div class="stat-row">
+        <span class="stat-label">Total Roads</span>
+        <span class="stat-value" id="statTotal">—</span>
+    </div>
+    <div class="stat-row">
+        <span class="stat-label">Tertiary</span>
+        <span class="stat-value" id="statTertiary">—</span>
+    </div>
+    <div class="stat-row">
+        <span class="stat-label">Service</span>
+        <span class="stat-value" id="statService">—</span>
+    </div>
+    <div class="stat-row">
+        <span class="stat-label">Paths</span>
+        <span class="stat-value" id="statPath">—</span>
+    </div>
+    <div class="stat-row">
+        <span class="stat-label">Other</span>
+        <span class="stat-value" id="statOther">—</span>
+    </div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    // ── Road styling configuration ──────────────────────────────
+    const ROAD_STYLES = {
+        tertiary:      { color: '#f59e0b', weight: 5, opacity: 0.95, dashArray: null },
+        service:       { color: '#3b82f6', weight: 3, opacity: 0.85, dashArray: null },
+        path:          { color: '#10b981', weight: 2.5, opacity: 0.8, dashArray: '8,6' },
+        track:         { color: '#a855f7', weight: 3, opacity: 0.8, dashArray: '6,4' },
+        raceway:       { color: '#ef4444', weight: 3.5, opacity: 0.85, dashArray: null },
+        unclassified:  { color: '#6b7280', weight: 3, opacity: 0.8, dashArray: '4,4' }
+    };
+
+    const HIGHLIGHT_WEIGHT_BONUS = 3;
+
+    // ── Tile layers ─────────────────────────────────────────────
+    const osmTile = L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        maxZoom: 20,
+        subdomains: 'abcd'
+    });
+
+    const satelliteTile = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '&copy; Esri',
+        maxZoom: 20
+    });
+
+    // ── Init map ────────────────────────────────────────────────
+    const map = L.map('map', {
+        center: [30.9672, 76.4864],
+        zoom: 15,
+        zoomControl: false,
+        layers: [osmTile]
+    });
+
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    let useSatellite = false;
+    let activeFilter = 'all';
+    let geojsonBounds = null;
+
+    // ── Layer groups by road type ───────────────────────────────
+    const layerGroups = {
+        tertiary: L.layerGroup().addTo(map),
+        service:  L.layerGroup().addTo(map),
+        path:     L.layerGroup().addTo(map),
+        other:    L.layerGroup().addTo(map)
+    };
+
+    function classifyHighway(hw) {
+        if (hw === 'tertiary') return 'tertiary';
+        if (hw === 'service') return 'service';
+        if (hw === 'path') return 'path';
+        return 'other'; // track, raceway, unclassified
+    }
+
+    function getStyle(highway) {
+        return ROAD_STYLES[highway] || ROAD_STYLES.unclassified;
+    }
+
+    // ── Popup content builder ───────────────────────────────────
+    function popupContent(props) {
+        const name = props.name || 'Unnamed Road';
+        const hw = props.highway || 'unknown';
+        const osmId = props.osm_way_id || '—';
+        return `
+            <div>
+                <strong style="font-size:14px;">${name}</strong><br>
+                <span style="color:#94a3b8;">Type:</span> ${hw}<br>
+                <span style="color:#94a3b8;">OSM Way ID:</span> ${osmId}
+            </div>
+        `;
+    }
+
+    // ── Load GeoJSON ────────────────────────────────────────────
+    fetch('map_roads_only.geojson')
+        .then(function (res) { return res.json(); })
+        .then(function (geojson) {
+            const counts = { tertiary: 0, service: 0, path: 0, other: 0 };
+
+            geojson.features.forEach(function (feature) {
+                const hw = feature.properties.highway || 'unclassified';
+                const group = classifyHighway(hw);
+                counts[group]++;
+
+                const style = getStyle(hw);
+
+                const layer = L.geoJSON(feature, {
+                    style: function () {
+                        return {
+                            color: style.color,
+                            weight: style.weight,
+                            opacity: style.opacity,
+                            dashArray: style.dashArray,
+                            lineCap: 'round',
+                            lineJoin: 'round'
+                        };
+                    },
+                    onEachFeature: function (feat, lyr) {
+                        lyr.bindPopup(popupContent(feat.properties));
+
+                        // Tooltip with name if available
+                        var label = feat.properties.name || hw;
+                        lyr.bindTooltip(label, {
+                            sticky: true,
+                            className: 'road-tooltip',
+                            direction: 'top',
+                            offset: [0, -8]
+                        });
+
+                        // Hover highlight
+                        lyr.on('mouseover', function () {
+                            lyr.setStyle({
+                                weight: style.weight + HIGHLIGHT_WEIGHT_BONUS,
+                                opacity: 1
+                            });
+                            lyr.bringToFront();
+                        });
+                        lyr.on('mouseout', function () {
+                            lyr.setStyle({
+                                weight: style.weight,
+                                opacity: style.opacity
+                            });
+                        });
+                    }
+                });
+
+                layerGroups[group].addLayer(layer);
+            });
+
+            // Compute bounds from all features
+            var allLayers = L.layerGroup([
+                layerGroups.tertiary,
+                layerGroups.service,
+                layerGroups.path,
+                layerGroups.other
+            ]);
+            geojsonBounds = L.geoJSON(geojson).getBounds();
+            map.fitBounds(geojsonBounds, { padding: [80, 80] });
+
+            // Update stats
+            document.getElementById('statTotal').textContent = geojson.features.length;
+            document.getElementById('statTertiary').textContent = counts.tertiary;
+            document.getElementById('statService').textContent = counts.service;
+            document.getElementById('statPath').textContent = counts.path;
+            document.getElementById('statOther').textContent = counts.other;
+        })
+        .catch(function (err) {
+            console.error('Failed to load GeoJSON:', err);
+        });
+
+    // ── Filter controls ─────────────────────────────────────────
+    var filterBtns = document.querySelectorAll('[data-layer]');
+
+    function applyFilter(filter) {
+        activeFilter = filter;
+        filterBtns.forEach(function (b) { b.classList.remove('active'); });
+
+        if (filter === 'all') {
+            Object.keys(layerGroups).forEach(function (k) { map.addLayer(layerGroups[k]); });
+            document.getElementById('btnAll').classList.add('active');
+        } else {
+            Object.keys(layerGroups).forEach(function (k) {
+                if (k === filter) {
+                    map.addLayer(layerGroups[k]);
+                } else {
+                    map.removeLayer(layerGroups[k]);
+                }
+            });
+            document.querySelector('[data-layer="' + filter + '"]').classList.add('active');
+        }
+    }
+
+    filterBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            applyFilter(btn.getAttribute('data-layer'));
+        });
+    });
+
+    // ── Satellite toggle ────────────────────────────────────────
+    document.getElementById('btnSatellite').addEventListener('click', function () {
+        useSatellite = !useSatellite;
+        if (useSatellite) {
+            map.removeLayer(osmTile);
+            map.addLayer(satelliteTile);
+            this.classList.add('active');
+        } else {
+            map.removeLayer(satelliteTile);
+            map.addLayer(osmTile);
+            this.classList.remove('active');
+        }
+    });
+
+    // ── Fit bounds ──────────────────────────────────────────────
+    document.getElementById('btnFitBounds').addEventListener('click', function () {
+        if (geojsonBounds) {
+            map.fitBounds(geojsonBounds, { padding: [80, 80] });
+        }
+    });
+
+    // ── Scale control ───────────────────────────────────────────
+    L.control.scale({ position: 'bottomright', imperial: false }).addTo(map);
+
+})();
+</script>
+</body>
+</html>

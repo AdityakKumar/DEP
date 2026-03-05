@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IIT Ropar – 3D Campus Model</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <canvas id="campus3d"></canvas>
+
+    <!-- Header -->
+    <div id="header">
+        <div class="header-left">
+            <span class="logo">🏛️</span>
+            <div>
+                <h1>IIT Ropar – 3D Campus Model</h1>
+                <p class="subtitle">Indian Institute of Technology Ropar, Punjab</p>
+            </div>
+        </div>
+        <div class="header-right">
+            <button id="btnReset" class="hbtn">🏠 Reset</button>
+            <button id="btnTop" class="hbtn">⬆️ Top View</button>
+            <button id="btnLabels" class="hbtn active">🏷️ Labels</button>
+            <button id="btnWire" class="hbtn">🔲 Wireframe</button>
+        </div>
+    </div>
+
+    <!-- Side panel -->
+    <div id="sidePanel">
+        <div class="sp-head">
+            <h2>🏗️ Campus Buildings</h2>
+            <input type="text" id="searchBox" placeholder="Search buildings..." />
+        </div>
+        <div id="buildingList"></div>
+    </div>
+
+    <!-- Info popup -->
+    <div id="infoPanel" class="hidden">
+        <button id="closeInfo">✕</button>
+        <h3 id="infoTitle"></h3>
+        <p id="infoDesc"></p>
+        <div id="infoTags"></div>
+    </div>
+
+    <!-- Legend -->
+    <div id="legend">
+        <h4>LEGEND</h4>
+        <div class="lg"><span style="background:#3b82f6"></span>Academic</div>
+        <div class="lg"><span style="background:#f59e0b"></span>Hostel</div>
+        <div class="lg"><span style="background:#10b981"></span>Sports</div>
+        <div class="lg"><span style="background:#a855f7"></span>Admin</div>
+        <div class="lg"><span style="background:#ef4444"></span>Landmark</div>
+        <div class="lg"><span style="background:#06b6d4"></span>Facility</div>
+        <div class="lg"><span style="background:#78716c"></span>Road</div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loader">
+        <div class="ld-inner">
+            <div class="spinner"></div>
+            <h2>Building 3D Campus…</h2>
+        </div>
+    </div>
+
+    <!-- Three.js from CDN -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="app.js"></script>
+</body>
+</html>
