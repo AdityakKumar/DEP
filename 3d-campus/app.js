@@ -676,8 +676,8 @@ const GEO_CENTER_LAT = 30.96620;
 const GEO_CENTER_LON = 76.47333;
 const GEO_DEG_LAT_M  = 111139;                                            // m per degree latitude
 const GEO_DEG_LON_M  = 111139 * Math.cos(GEO_CENTER_LAT * Math.PI / 180); // m per degree longitude (~95299)
-const GEO_SCALE_X    = 0.09849;                                           // world units per meter (E-W)
-const GEO_SCALE_Z    = 0.14240;                                           // world units per meter (N-S)
+const GEO_SCALE_X    = 0.14774;                                           // world units per meter (E-W) — 1.5× original
+const GEO_SCALE_Z    = 0.21360;                                           // world units per meter (N-S) — 1.5× original
 
 function geoToWorld(lon, lat) {
     return {
