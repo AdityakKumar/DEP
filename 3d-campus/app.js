@@ -25,7 +25,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB); // sky blue
 
 // Gradient sky via hemisphere
-const skyGeo = new THREE.SphereGeometry(500, 32, 15);
+const skyGeo = new THREE.SphereGeometry(800, 32, 15);
 const skyMat = new THREE.ShaderMaterial({
     uniforms: {
         topColor:    { value: new THREE.Color(0x0077ff) },
@@ -95,17 +95,17 @@ const hemi = new THREE.HemisphereLight(0x87ceeb, 0x556b2f, 0.45);
 scene.add(hemi);
 
 const sun = new THREE.DirectionalLight(0xfff8e7, 1.5);
-sun.position.set(100, 180, 80);
+sun.position.set(150, 180, 80);
 sun.castShadow = true;
 sun.shadow.mapSize.set(4096, 4096);
 const sc = sun.shadow.camera;
-sc.left = -200; sc.right = 200; sc.top = 200; sc.bottom = -200;
+sc.left = -300; sc.right = 300; sc.top = 200; sc.bottom = -200;
 sc.near = 1; sc.far = 600;
 sun.shadow.bias = -0.0004;
 scene.add(sun);
 
 const fill = new THREE.DirectionalLight(0x8ec8f0, 0.35);
-fill.position.set(-80, 60, -60);
+fill.position.set(-120, 60, -60);
 scene.add(fill);
 
 // =====================================================================
@@ -644,12 +644,12 @@ function createHostelBuilding(id, cx, cz, fitW, fitD, labelText) {
 // 6. BUILD THE GROUND / TERRAIN
 // =====================================================================
 function buildTerrain() {
-    // Main campus ground (grass)
-    ground(0, 0, 320, 220, MAT.grass);
+    // Main campus ground (grass) — X coords & widths ×1.5
+    ground(0, 0, 480, 220, MAT.grass);
 
     // Outer terrain
-    ground(0, 0, 600, 500, MAT.grassDark);
-    const outerGeo = new THREE.PlaneGeometry(600, 500);
+    ground(0, 0, 900, 500, MAT.grassDark);
+    const outerGeo = new THREE.PlaneGeometry(900, 500);
     const outerMesh = new THREE.Mesh(outerGeo, MAT.grassDark);
     outerMesh.rotation.x = -Math.PI / 2;
     outerMesh.position.set(0, -0.05, 0);
@@ -657,10 +657,10 @@ function buildTerrain() {
     scene.add(outerMesh);
 
     // Sandy/bare areas around construction zones
-    ground(-120, -60, 30, 40, MAT.sand);
-    ground(110, -50, 40, 30, MAT.dirt);
-    ground(100, 60, 50, 30, MAT.sand);
-    ground(-100, 50, 30, 25, MAT.dirt);
+    ground(-180, -60, 45, 40, MAT.sand);
+    ground(165, -50, 60, 30, MAT.dirt);
+    ground(150, 60, 75, 30, MAT.sand);
+    ground(-150, 50, 45, 25, MAT.dirt);
 }
 
 // =====================================================================
@@ -676,7 +676,7 @@ const GEO_CENTER_LAT = 30.96620;
 const GEO_CENTER_LON = 76.47333;
 const GEO_DEG_LAT_M  = 111139;                                            // m per degree latitude
 const GEO_DEG_LON_M  = 111139 * Math.cos(GEO_CENTER_LAT * Math.PI / 180); // m per degree longitude (~95299)
-const GEO_SCALE_X    = 0.14774;                                           // world units per meter (E-W) — 1.5× original
+const GEO_SCALE_X    = 0.22161;                                           // world units per meter (E-W) — 1.5× horizontal stretch
 const GEO_SCALE_Z    = 0.21360;                                           // world units per meter (N-S) — 1.5× original
 
 function geoToWorld(lon, lat) {
@@ -921,12 +921,12 @@ function buildRoads() {
         }
     });
 
-    // Parking areas (kept from original layout)
-    ground(-20, 15, 15, 8, MAT.parking);
-    ground(20, 15, 15, 8, MAT.parking);
-    ground(-50, -70, 12, 8, MAT.parking);
-    ground(50, -70, 12, 8, MAT.parking);
-    ground(-1, 75, 20, 6, MAT.parking);
+    // Parking areas (kept from original layout) — X coords & widths ×1.5
+    ground(-30, 15, 22.5, 8, MAT.parking);
+    ground(30, 15, 22.5, 8, MAT.parking);
+    ground(-75, -70, 18, 8, MAT.parking);
+    ground(75, -70, 18, 8, MAT.parking);
+    ground(-1.5, 75, 30, 6, MAT.parking);
 }
 
 // =====================================================================
@@ -1604,9 +1604,9 @@ function buildHills() {
 function buildCompass() {
     const arrowGeo = new THREE.ConeGeometry(1.5, 5, 3);
     const arrow = new THREE.Mesh(arrowGeo, new THREE.MeshStandardMaterial({ color: 0xef4444 }));
-    arrow.position.set(130, 5, -85);
+    arrow.position.set(195, 5, -85);
     scene.add(arrow);
-    addLabel(null, '⬆ N', 130, 10, -85);
+    addLabel(null, '⬆ N', 195, 10, -85);
 }
 
 // =====================================================================
@@ -1806,10 +1806,10 @@ function animate() {
 // =====================================================================
 buildTerrain();
 buildRoads();
-buildAllBuildings();
-buildLandscaping();
-buildRiver();
-buildHills();
+// buildAllBuildings();
+// buildLandscaping();
+// buildRiver();
+// buildHills();
 buildCompass();
 populateList();
 animate();
