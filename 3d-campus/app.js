@@ -471,6 +471,127 @@ function createVisitingFacultyBuilding(cx, cz) {
 }
 
 // =====================================================================
+// HOSTEL BLOCK — Single wing with hostel.html visual style
+// Green balconies, pale yellow walls, window panels, room dividers
+// =====================================================================
+function createHostelBlock(id, cx, cz, w, d, h, labelText) {
+    const buildingGroup = new THREE.Group();
+    const floorCount = 5;
+    const floorHeight = h / floorCount;
+
+    // Materials (matching hostel.html palette)
+    const wallMat = MAT.hostel;
+    const wallMatAlt = MAT.hostelAlt;
+    const roofMat = MAT.roof;
+    const balconyMat = new THREE.MeshStandardMaterial({ color: 0x3e5f3e, roughness: 0.8 });
+    const windowMat = MAT.glass;
+
+    // Core wall block
+    const coreGeo = new THREE.BoxGeometry(w - 0.5, h, d - 0.5);
+    const core = new THREE.Mesh(coreGeo, wallMat);
+    core.position.y = h / 2;
+    core.castShadow = true;
+    core.receiveShadow = true;
+    buildingGroup.add(core);
+
+    // Roof slab
+    const roofGeo = new THREE.BoxGeometry(w + 0.3, 0.4, d + 0.3);
+    const roof = new THREE.Mesh(roofGeo, roofMat);
+    roof.position.y = h + 0.2;
+    roof.receiveShadow = true;
+    buildingGroup.add(roof);
+
+    // Floor-by-floor facade details
+    for (let i = 1; i <= floorCount; i++) {
+        const yPos = i * floorHeight - floorHeight / 2;
+
+        // Green balcony slab
+        const slabGeo = new THREE.BoxGeometry(w, 0.3, d);
+        const slab = new THREE.Mesh(slabGeo, balconyMat);
+        slab.position.y = i * floorHeight;
+        slab.castShadow = true;
+        buildingGroup.add(slab);
+
+        // Room divider columns + windows along Z-faces (left/right sides)
+        const roomWidth = Math.max(2, d / Math.floor(d / 2.5));
+        const stepsZ = Math.max(1, Math.floor(d / roomWidth));
+        for (let k = 0; k <= stepsZ; k++) {
+            const divZ = -d / 2 + k * (d / stepsZ);
+            // Left column
+            const pL = new THREE.Mesh(new THREE.BoxGeometry(0.3, floorHeight, 0.3), wallMatAlt);
+            pL.position.set(-w / 2, yPos, divZ);
+            buildingGroup.add(pL);
+            // Right column
+            const pR = new THREE.Mesh(new THREE.BoxGeometry(0.3, floorHeight, 0.3), wallMatAlt);
+            pR.position.set(w / 2, yPos, divZ);
+            buildingGroup.add(pR);
+            // Windows between columns
+            if (k < stepsZ) {
+                const winD = (d / stepsZ) - 0.6;
+                if (winD > 0) {
+                    const winGeo = new THREE.BoxGeometry(0.15, floorHeight * 0.6, winD);
+                    const wL = new THREE.Mesh(winGeo, windowMat);
+                    wL.position.set(-w / 2 + 0.15, yPos, divZ + (d / stepsZ) / 2);
+                    buildingGroup.add(wL);
+                    const wR = new THREE.Mesh(winGeo, windowMat);
+                    wR.position.set(w / 2 - 0.15, yPos, divZ + (d / stepsZ) / 2);
+                    buildingGroup.add(wR);
+                }
+            }
+        }
+
+        // Room divider columns + windows along X-faces (front/back sides)
+        const roomWidthX = Math.max(2, w / Math.floor(w / 2.5));
+        const stepsX = Math.max(1, Math.floor(w / roomWidthX));
+        for (let k = 0; k <= stepsX; k++) {
+            const divX = -w / 2 + k * (w / stepsX);
+            const pF = new THREE.Mesh(new THREE.BoxGeometry(0.3, floorHeight, 0.3), wallMatAlt);
+            pF.position.set(divX, yPos, -d / 2);
+            buildingGroup.add(pF);
+            const pB = new THREE.Mesh(new THREE.BoxGeometry(0.3, floorHeight, 0.3), wallMatAlt);
+            pB.position.set(divX, yPos, d / 2);
+            buildingGroup.add(pB);
+            if (k < stepsX) {
+                const winW = (w / stepsX) - 0.6;
+                if (winW > 0) {
+                    const winGeo = new THREE.BoxGeometry(winW, floorHeight * 0.6, 0.15);
+                    const wF = new THREE.Mesh(winGeo, windowMat);
+                    wF.position.set(divX + (w / stepsX) / 2, yPos, -d / 2 + 0.15);
+                    buildingGroup.add(wF);
+                    const wB = new THREE.Mesh(winGeo, windowMat);
+                    wB.position.set(divX + (w / stepsX) / 2, yPos, d / 2 - 0.15);
+                    buildingGroup.add(wB);
+                }
+            }
+        }
+    }
+
+    // Water tank on roof
+    const tankGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 8);
+    const tankMat2 = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
+    const tank = new THREE.Mesh(tankGeo, tankMat2);
+    tank.position.set(0, h + 0.9, 0);
+    tank.castShadow = true;
+    buildingGroup.add(tank);
+
+    // Position on campus
+    buildingGroup.position.set(cx, 0, cz);
+    scene.add(buildingGroup);
+
+    // Register for raycasting
+    buildingGroup.traverse((child) => {
+        if (child.isMesh) {
+            child.userData.id = id;
+            allMeshes.push(child);
+            if (!meshById[id]) meshById[id] = [];
+            meshById[id].push(child);
+        }
+    });
+
+    addLabel(id, labelText, cx, h + 2, cz);
+}
+
+// =====================================================================
 // HOSTEL BUILDING — Detailed model (multi-wing with balconies, dome, tanks)
 // Adapted from standalone hostel.html
 // =====================================================================
@@ -644,15 +765,15 @@ function createHostelBuilding(id, cx, cz, fitW, fitD, labelText) {
 // 6. BUILD THE GROUND / TERRAIN
 // =====================================================================
 function buildTerrain() {
-    // Main campus ground (grass) — X coords & widths ×1.5
-    ground(0, 0, 480, 220, MAT.grass);
+    // Main campus ground (grass) — expanded for road-network-aligned positions
+    ground(0, -20, 500, 300, MAT.grass);
 
     // Outer terrain
-    ground(0, 0, 900, 500, MAT.grassDark);
-    const outerGeo = new THREE.PlaneGeometry(900, 500);
+    ground(0, -20, 1000, 600, MAT.grassDark);
+    const outerGeo = new THREE.PlaneGeometry(1000, 600);
     const outerMesh = new THREE.Mesh(outerGeo, MAT.grassDark);
     outerMesh.rotation.x = -Math.PI / 2;
-    outerMesh.position.set(0, -0.05, 0);
+    outerMesh.position.set(0, -0.05, -20);
     outerMesh.receiveShadow = true;
     scene.add(outerMesh);
 
@@ -946,657 +1067,390 @@ function reg(id, name, cat, desc, tags) {
 function buildAllBuildings() {
 
     // =====================================================================
-    // 8A. MAIN GATE COMPLEX (bottom of map, z ≈ 87)
-    // Image: large structure at center-bottom
-    // World center: (-0.6, 87.2), width: 75, depth: 16.5
+    // Positions aligned to reference map annotations over the 3D campus view.
+    // Only buildings labelled in the reference map are active.
+    // Campus layout (world coords):
+    //   z ≈ -133 : Main entrance road (tertiary)
+    //   z ≈ -115 : Spiral structure
+    //   z ≈ -65 to -75 : Row 1 — H1-H3, P, D1-D4
+    //   z ≈ -35 to -50 : Row 2 — H4-H6, Mess, UT, MC, Workshop, LHC, A, Lib, VF
+    //   z ≈ +50 to +90 : Sports — VG, BG, FG, CG
+    // =====================================================================
+
+    // =====================================================================
+    // M — MAIN GATE  (tertiary road junction at x≈-19.5, z≈-132.6)
+    // Tertiary road runs E-W: (11.5,-134.7)→(-19.5,-132.6)→(-26.4,-132.2)
+    // Service road enters campus south from (-19.5,-132.6)
     // =====================================================================
     reg('main_gate', 'Main Gate Complex', 'landmark',
         'Iconic entrance inspired by Indus Valley Civilisation with four 41-ft stone-carved pyramid pillars, built with ASI.',
         ['Entrance', 'Indus Valley', 'Iconic']);
-
-    // Gate structure - wide low wall with 4 tall pillars
-    box('main_gate', -0.6, 87, 60, 4, 3, MAT.gate);        // base wall
-    pillar(-20, 87, 2, 2, 14, MAT.gate);                     // Pillar 1
-    pillar(-8, 87, 2, 2, 14, MAT.gate);                      // Pillar 2
-    pillar(6, 87, 2, 2, 14, MAT.gate);                       // Pillar 3
-    pillar(18, 87, 2, 2, 14, MAT.gate);                      // Pillar 4
-    // Gate canopy/beam connecting pillars
-    box('main_gate', -0.6, 87, 44, 2.5, 2, MAT.concrete);
-    const gateMesh = meshById['main_gate'][0];
-    gateMesh.position.y = 13;
-    addLabel('main_gate', '🏛️ Main Gate', -0.6, 18, 87);
+    // Gate bar spans the campus entrance (≈12 units wide), centered on the road junction
+    box('main_gate', -4, -123, 14, 4, 3, MAT.gate);
+    // Four pyramid pillars flanking the entrance
+    pillar(-10, -123, 2, 2, 14, MAT.gate);
+    pillar(-6, -123, 2, 2, 14, MAT.gate);
+    pillar(-2, -123, 2, 2, 14, MAT.gate);
+    pillar(2, -123, 2, 2, 14, MAT.gate);
+    addLabel('main_gate', '🏛️ Main Gate', -4, 18, -123);
     origColor['main_gate'] = 0xb89a6a;
 
-    // The Spiral DNA sculpture near gate
-    reg('spiral', 'The Spiral (DNA Sculpture)', 'landmark',
-        'Artistic DNA double-helix sculpture at the entrance complex.',
-        ['Sculpture', 'Art', 'DNA']);
-    const spiralGeo = new THREE.TorusKnotGeometry(2, 0.4, 80, 8, 2, 3);
-    const spiralMesh = new THREE.Mesh(spiralGeo, MAT.metal);
-    spiralMesh.position.set(-0.6, 8, 80);
-    spiralMesh.castShadow = true;
-    spiralMesh.userData.id = 'spiral';
-    scene.add(spiralMesh);
-    allMeshes.push(spiralMesh);
-    meshById['spiral'] = [spiralMesh];
-    origColor['spiral'] = 0x8899aa;
-    addLabel('spiral', '🧬 DNA Spiral', -0.6, 14, 80);
+    // Gate plaza & security booths
+    reg('gate_plaza', 'Gate Plaza & Security', 'infrastructure',
+        'Entry plaza with security booth, visitor registration, and vehicle checking.',
+        ['Security', 'Entry', 'Parking']);
+    ground(-17, -137, 20, 6, MAT.sidewalk);
+    box('gate_plaza', -11, -127, 3, 3, 3, MAT.concrete);
+    box('gate_plaza', 3, -127, 3, 3, 3, MAT.concrete);
+    origColor['gate_plaza'] = 0xe8e0d4;
 
     // =====================================================================
-    // 8B. ACADEMIC BLOCKS — TOP ROW (z ≈ -84)
-    // Image analysis: 6 large white blocks in a row at y≈223-275
-    // These are the named blocks: Ramanujan, JC Bose, Visvesvaraya etc.
+    // S — SPIRAL STRUCTURE  (just south of main gate, on the entry road)
+    // Gate service road: (-19.5,-132.6)→(-18.4,-129.6)→(-17.1,-127.8)→(-15.6,-126.3)
+    // Placed at the midpoint of the entry path, before the first internal junction
     // =====================================================================
-
-    // Block 1: S. Ramanujan Block — world: (-50.4, -83.8) w=25, d=7
-    reg('ramanujan', 'S. Ramanujan Block', 'academic',
-        'Named after Srinivasa Ramanujan. Houses Mathematics dept, classrooms, and research labs.',
-        ['Mathematics', 'Classrooms', 'Research']);
-    uShape('ramanujan', -50, -84, 25, 5, 5, 7, 12, MAT.academic);
-    box('ramanujan', -50, -84, 25, 5, 2, MAT.roof); // roof accent
-    meshById['ramanujan'][meshById['ramanujan'].length - 1].position.y = 13;
-    addLabel('ramanujan', '📐 Ramanujan Block', -50, 16, -84);
-    origColor['ramanujan'] = 0xe0d8cc;
-
-    // Block 2: Bhatnagar Block — world: (-27.9, -83.8) w=17, d=7
-    reg('bhatnagar', 'S. Bhatnagar Block', 'academic',
-        'Named after Shanti Swaroop Bhatnagar, CSIR founder. Chemistry & Chemical Engineering labs.',
-        ['Chemistry', 'Chemical Eng', 'Labs']);
-    uShape('bhatnagar', -28, -84, 17, 5, 4, 6, 12, MAT.academicB);
-    addLabel('bhatnagar', '🧪 Bhatnagar Block', -28, 16, -84);
-    origColor['bhatnagar'] = 0xd8cfc0;
-
-    // Block 3: J.C. Bose Block — world: (-5.1, -83.8) w=25.5, d=7
-    reg('jcbose', 'J.C. Bose Block', 'academic',
-        'Named after Jagadish Chandra Bose, radio science pioneer. Physics & EE research.',
-        ['Physics', 'Research', 'Radio Science']);
-    uShape('jcbose', -5, -84, 25, 5, 5, 7, 12, MAT.academic);
-    addLabel('jcbose', '📡 J.C. Bose Block', -5, 16, -84);
-    origColor['jcbose'] = 0xe0d8cc;
-
-    // Block 4: Visvesvaraya Block — world: (19.9, -83.8) w=21.6, d=7
-    reg('visvesvaraya', 'M. Visvesvaraya Block', 'academic',
-        'Named after Sir M. Visvesvaraya. Mechanical & Civil Engineering departments.',
-        ['Mechanical', 'Civil', 'Engineering']);
-    uShape('visvesvaraya', 20, -84, 22, 5, 5, 6, 12, MAT.academicB);
-    addLabel('visvesvaraya', '⚙️ Visvesvaraya Block', 20, 16, -84);
-    origColor['visvesvaraya'] = 0xd8cfc0;
-
-    // Block 5: Satish Dhawan Block — world: (41.0, -83.8) w=17.9, d=7
-    reg('satish_dhawan', 'Satish Dhawan Block', 'academic',
-        'Named after Satish Dhawan, father of experimental fluid dynamics. Aerospace research.',
-        ['Aerospace', 'Fluid Dynamics', 'Research']);
-    uShape('satish_dhawan', 41, -84, 18, 5, 4, 6, 12, MAT.academic);
-    addLabel('satish_dhawan', '🚀 Satish Dhawan', 41, 16, -84);
-    origColor['satish_dhawan'] = 0xe0d8cc;
-
-    // Block 6: Har Gobind Khorana Block — world: (72.3, -83.9) w=42, d=7.3
-    // This is the largest academic block
-    reg('khorana', 'Har Gobind Khorana Block', 'academic',
-        'Named after Nobel laureate HG Khorana. Biomedical Engineering, advanced bio-labs, CSE & EE.',
-        ['Biomedical', 'Nobel', 'CSE', 'EE']);
-    // Main long bar
-    box('khorana', 72, -84, 42, 6, 12, MAT.academic);
-    // Wings at ends
-    box('khorana', 52, -90, 6, 8, 12, MAT.academicB);
-    box('khorana', 92, -90, 6, 8, 12, MAT.academicB);
-    addLabel('khorana', '🧬 Khorana Block', 72, 16, -84);
-    origColor['khorana'] = 0xe0d8cc;
+    reg('spiral', 'Spiral / DNA Sculpture', 'landmark',
+        'Decorative spiral sculpture near the main entrance.',
+        ['Spiral', 'Art', 'Sculpture']);
+    const spiralGroup = new THREE.Group();
+    const spiralMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.5, roughness: 0.3 });
+    for (let i = 0; i < 40; i++) {
+        const angle = (i / 40) * Math.PI * 4;
+        const r = 2;
+        const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), spiralMat);
+        sphere.position.set(Math.cos(angle) * r, i * 0.3, Math.sin(angle) * r);
+        sphere.userData.id = 'spiral';
+        spiralGroup.add(sphere);
+    }
+    // Positioned on the entry road, between gate (-133) and first junction (-113)
+    spiralGroup.position.set(-4, 0, -93);
+    scene.add(spiralGroup);
+    spiralGroup.traverse(c => {
+        if (c.isMesh) { allMeshes.push(c); if (!meshById['spiral']) meshById['spiral'] = []; meshById['spiral'].push(c); }
+    });
+    addLabel('spiral', '🌀 Spiral Structure', -4, 14, -93);
+    origColor['spiral'] = 0xcccccc;
 
     // =====================================================================
-    // 8C. LECTURE HALL COMPLEX & RADHAKRISHNAN BLOCK (z ≈ -74)
-    // =====================================================================
-    reg('radhakrishnan', 'Radhakrishnan Block', 'academic',
-        'Named after Dr. S. Radhakrishnan. Humanities & Social Sciences.',
-        ['Humanities', 'HSS', 'Philosophy']);
-    box('radhakrishnan', -14, -74, 5, 6, 11, MAT.academic);
-    addLabel('radhakrishnan', '📖 Radhakrishnan', -14, 14, -74);
-    origColor['radhakrishnan'] = 0xe0d8cc;
-
-    // =====================================================================
-    // 8D. MID-CAMPUS BUILDINGS (z ≈ -40 to +5)
-    // From image analysis — scattered smaller structures
+    // ROW 1 — HOSTELS H1-H3, PARKING, DEPARTMENTS D1-D4
     // =====================================================================
 
-    // CSE Department cluster — world: approx (-85, -8) to (-83, 15)
-    // Two tall narrow buildings from image (items 37, 40)
-    reg('cse', 'CSE Department', 'academic',
-        'Computer Science & Engineering — first dept on permanent campus (July 2018). Computing labs & server rooms.',
-        ['CSE', 'Computing', 'Server Rooms']);
-    lShape('cse', -85, -5, 4, 14, 8, 4, 11, MAT.academic, 'TL');
-    addLabel('cse', '💻 CSE Dept', -85, 14, -5);
-    origColor['cse'] = 0xe0d8cc;
+    // H1 — Hostel 1 (far left, top row)
+    reg('hostel_1', 'Hostel 1', 'hostel',
+        'Student hostel block in the north-west residential cluster.',
+        ['Hostel', 'Residential']);
+    createHostelBlock('hostel_1', -159, -56, 15, 15, 10, '🏠 H1');
+    origColor['hostel_1'] = 0xd4c4a8;
 
-    // Admin Block cluster — world: (-106, 10..20)
-    // Items 16, 18 from image
-    reg('admin_block', 'Administrative Block', 'admin',
-        "Director's office, Registrar, Dean offices, central administration.",
-        ['Director', 'Registrar', 'Admin']);
-    lShape('admin_block', -106, 15, 8, 10, 10, 4, 10, MAT.admin, 'BL');
-    addLabel('admin_block', '🏛️ Admin Block', -106, 13, 15);
-    origColor['admin_block'] = 0xd4ccc0;
+    // H2 — Hostel 2
+    reg('hostel_2', 'Hostel 2', 'hostel',
+        'Student hostel block adjacent to H1.',
+        ['Hostel', 'Residential']);
+    createHostelBlock('hostel_2', -133, -56, 15, 15, 10, '🏠 H2');
+    origColor['hostel_2'] = 0xc8b898;
 
-    // Lecture Hall Complex — world: (-102, 34)
+    // H3 — Hostel 3 (slightly larger)
+    reg('hostel_3', 'Hostel 3', 'hostel',
+        'Student hostel block, larger footprint.',
+        ['Hostel', 'Residential']);
+    createHostelBlock('hostel_3', -102, -58, 15, 15, 10, '🏠 H3');
+    origColor['hostel_3'] = 0xd4c4a8;
+
+    // P — Parking Area
+    reg('parking', 'Parking Area', 'infrastructure',
+        'Open parking lot between hostel and department zones.',
+        ['Parking', 'Vehicles']);
+    ground(-75, -58, 12, 8, MAT.parking);
+    addLabel('parking', '🅿️ Parking', -75, 2, -58);
+    origColor['parking'] = 0x484848;
+
+    // D1 — Department 1
+    reg('dept_1', 'Department Block 1', 'academic',
+        'Academic department building.',
+        ['Department', 'Academic']);
+    box('dept_1', -58, -58, 14, 14, 12, MAT.academic);
+    addLabel('dept_1', '🏫 D1', -58, 15, -58);
+    origColor['dept_1'] = 0xe0d8cc;
+
+    // D2 — Department 2 (large central block)
+    reg('dept_2', 'Department Block 2', 'academic',
+        'Main academic department building — largest block on campus.',
+        ['Department', 'Academic']);
+    box('dept_2', -35, -58, 14, 14, 13, MAT.academicB);
+    addLabel('dept_2', '🏫 D2', -35, 16, -58);
+    origColor['dept_2'] = 0xd8cfc0;
+
+    // D3 — Department 3
+    reg('dept_3', 'Department Block 3', 'academic',
+        'Academic department building, right of centre.',
+        ['Department', 'Academic']);
+    box('dept_3', 30, -58, 15, 10, 12, MAT.academic);
+    addLabel('dept_3', '🏫 D3', 30, 15, -58);
+    origColor['dept_3'] = 0xe0d8cc;
+
+    // D4 — Department 4
+    reg('dept_4', 'Department Block 4', 'academic',
+        'Academic department building on the eastern side.',
+        ['Department', 'Academic']);
+    box('dept_4', 49, -63, 14, 8, 12, MAT.academicB);
+    addLabel('dept_4', '🏫 D4', 49, 15, -63);
+    origColor['dept_4'] = 0xd8cfc0;
+
+    // =====================================================================
+    // ROW 2 — H4-H6, MESS, UT, MC, WORKSHOP, CAFETERIA, LHC, A, LIB, VF
+    // =====================================================================
+
+    // H5 — Hostel 5 (below H1)
+    reg('hostel_5', 'Hostel 5', 'hostel',
+        'Student hostel in the lower-left residential area.',
+        ['Hostel', 'Residential']);
+    createHostelBlock('hostel_5', -139, -27, 10, 8, 10, '🏠 H5');
+    origColor['hostel_5'] = 0xd4c4a8;
+
+    // H4 — Hostel 4 (below H2)
+    reg('hostel_4', 'Hostel 4', 'hostel',
+        'Student hostel in the lower-left residential area.',
+        ['Hostel', 'Residential']);
+    createHostelBlock('hostel_4', -147, -15, 10, 8, 10, '🏠 H4');
+    origColor['hostel_4'] = 0xc8b898;
+
+    // Mess — Dining Hall
+    reg('mess', 'Mess / Dining Hall', 'dining',
+        'Main dining facility for hostel residents — breakfast, lunch, dinner.',
+        ['Food', 'Mess', 'Dining']);
+    box('mess', -110, -15, 14, 10, 5, MAT.brick);
+    addLabel('mess', '🍽️ Mess', -120, 8, -15);
+    origColor['mess'] = 0xc4956a;
+
+    // UT — Utility Block
+    reg('utility', 'Utility Block', 'infrastructure',
+        'Campus utility services — power, water treatment, maintenance.',
+        ['Utility', 'Services']);
+    box('utility', -75, -41, 6, 5, 5, MAT.concrete);
+    addLabel('utility', '🔧 UT', -75, 8, -41);
+    origColor['utility'] = 0xe8e0d4;
+
+    // MC — Medical Centre
+    reg('medical', 'Medical Centre', 'facility',
+        'Campus health centre — primary healthcare, first aid, medical assistance.',
+        ['Medical', 'Health', 'Clinic']);
+    box('medical', -75, -33, 8, 6, 6, MAT.concreteW);
+    addLabel('medical', '🏥 MC', -75, 9, -33);
+    origColor['medical'] = 0xf0ece6;
+
+    // H6 — Hostel 6
+    reg('hostel_6', 'Hostel 6', 'hostel',
+        'Student hostel south of the utility and medical blocks.',
+        ['Hostel', 'Residential']);
+    createHostelBlock('hostel_6', -72, -15, 15, 10, 10, '🏠 H6');
+    origColor['hostel_6'] = 0xd4c4a8;
+
+    // Workshop
+    reg('workshop', 'Workshop', 'facility',
+        'Fabrication and machining workshop for research and academic projects.',
+        ['Workshop', 'Fabrication', 'Machining']);
+    box('workshop', -42, -15, 12, 8, 6, MAT.brick);
+    addLabel('workshop', '🔧 Workshop', -42, 9, -15);
+    origColor['workshop'] = 0xc4956a;
+
+    // Cafeteria (below Workshop)
+    reg('cafeteria', 'Cafeteria', 'dining',
+        'Campus cafeteria — snacks, beverages, casual dining.',
+        ['Cafeteria', 'Food', 'Snacks']);
+    box('cafeteria', -42, 3, 16, 15, 5, MAT.brickDark);
+    addLabel('cafeteria', '☕ Cafeteria', -42, 8, 3);
+    origColor['cafeteria'] = 0xa07050;
+
+    // LHC — Lecture Hall Complex
     reg('lhc', 'Lecture Hall Complex', 'academic',
         'Multiple tiered auditoriums for classes, seminars, and workshops.',
         ['Lectures', 'Seminars', 'Auditorium']);
-    box('lhc', -102, 34, 17, 4.5, 8, MAT.concrete);
-    box('lhc', -106, 38, 15, 3, 8, MAT.concrete);
-    addLabel('lhc', '🎓 Lecture Halls', -102, 11, 34);
+    box('lhc', -30, -36, 10, 8, 8, MAT.concrete);
+    addLabel('lhc', '🎓 LHC', -30, 11, -36);
     origColor['lhc'] = 0xe8e0d4;
 
-    // Central Workshop — world: (-94, 24)
-    reg('workshop', 'Central Workshop', 'facility',
-        'Fabrication and machining workshop for research and academic projects.',
-        ['Workshop', 'Fabrication', 'Machining']);
-    box('workshop', -94, 24, 7, 6, 6, MAT.brick);
-    addLabel('workshop', '🔧 Workshop', -94, 9, 24);
-    origColor['workshop'] = 0xc4956a;
+    // A — Auditorium
+    reg('auditorium', 'Auditorium', 'admin',
+        'Large auditorium for convocations, Zeitgeist, Advitiya, and major events.',
+        ['Auditorium', 'Events', 'Convocation']);
+    box('auditorium', -2, -38, 10, 8, 9, MAT.admin);
+    addLabel('auditorium', '🎭 Auditorium', -2, 12, -38);
+    origColor['auditorium'] = 0xd4ccc0;
 
-    // =====================================================================
-    // 8E. CENTRAL RESEARCH & DATA CENTER (z ≈ 20-35)
-    // =====================================================================
-
-    // Large research complex — world: (31.4, 20.9) w=13, d=13
-    reg('crf', 'Central Research Facility', 'facility',
-        'Sophisticated high-end equipment from all departments for centralized research.',
-        ['Research', 'Equipment', 'Central']);
-    // L-shaped from image
-    box('crf', 31, 21, 13, 8, 10, MAT.concrete);
-    box('crf', 37, 27, 5, 6, 10, MAT.concrete);
-    addLabel('crf', '🔬 Central Research', 31, 13, 21);
-    origColor['crf'] = 0xe8e0d4;
-
-    // Building at (48, 10) — w=10, d=7 — possible EE labs / additional academic
-    reg('ee_labs', 'EE Research Labs', 'academic',
-        'Electrical Engineering research labs — power systems, signal processing, VLSI.',
-        ['Electrical', 'VLSI', 'Power Systems']);
-    box('ee_labs', 48, 10, 10, 7, 10, MAT.academicB);
-    addLabel('ee_labs', '⚡ EE Labs', 48, 13, 10);
-    origColor['ee_labs'] = 0xd8cfc0;
-
-    // Building at (48.5, 20) — more labs
-    reg('mech_labs', 'ME Research Labs', 'academic',
-        'Mechanical Engineering advanced research labs and testing facilities.',
-        ['Mechanical', 'Testing', 'Labs']);
-    box('mech_labs', 49, 20, 9, 8, 10, MAT.academic);
-    addLabel('mech_labs', '🔩 ME Labs', 49, 13, 20);
-    origColor['mech_labs'] = 0xe0d8cc;
-
-    // AWaDH Innovation Hub — world: approx (9.5, 14)
-    reg('awadh', 'AWaDH Innovation Hub', 'facility',
-        'DST Technology Innovation Hub (₹110 Cr) — Agriculture, Water, IoT, stubble management.',
-        ['Innovation', 'AgriTech', 'DST', 'IoT']);
-    box('awadh', 10, 14, 8, 10, 9, MAT.concrete);
-    addLabel('awadh', '🌾 AWaDH Hub', 10, 12, 14);
-    origColor['awadh'] = 0xe8e0d4;
-
-    // Cluster at (8, 22) — small academic
-    reg('biotech', 'Biotech Lab', 'academic',
-        'Biotechnology and biomedical research laboratory.',
-        ['Biotech', 'Biomedical', 'Lab']);
-    box('biotech', 8, 22, 5, 6, 9, MAT.academicB);
-    addLabel('biotech', '🧫 Biotech', 8, 12, 22);
-    origColor['biotech'] = 0xd8cfc0;
-
-    // Buildings at (23.6, 19) — narrow tall
-    reg('server_room', 'Data Center & IT', 'facility',
-        'Campus network operations center, server room, and IT support.',
-        ['IT', 'Network', 'Servers']);
-    box('server_room', 24, 19, 3, 13, 10, MAT.metal);
-    addLabel('server_room', '🖥️ Data Center', 24, 13, 19);
-    origColor['server_room'] = 0x8899aa;
-
-    // =====================================================================
-    // 8F. LIBRARY & SAC AREA (z ≈ 30-50)
-    // =====================================================================
-
-    // Library — world: (-22, 32.7) and surroundings
+    // Lib — Library
     reg('library', 'Central Library', 'facility',
         'State-of-the-art library with digital & physical collections, reading rooms, e-resources.',
         ['Library', 'Books', 'E-Resources']);
-    box('library', -22, 33, 8, 5, 9, MAT.concreteW);
-    box('library', -28, 33, 4, 3.5, 9, MAT.concrete);
-    addLabel('library', '📚 Library', -22, 12, 33);
+    box('library', -2, -27, 10, 6, 9, MAT.concreteW);
+    addLabel('library', '📚 Library', -2, 12, -27);
     origColor['library'] = 0xf0ece6;
 
-    // Seminar Hall cluster (29, 34)
-    reg('seminar_hall', 'Seminar Hall Complex', 'academic',
-        'Seminar halls and conference rooms for academic events.',
-        ['Seminars', 'Conference', 'Events']);
-    box('seminar_hall', 29, 34, 8, 6, 8, MAT.concrete);
-    addLabel('seminar_hall', '🎤 Seminar Halls', 29, 11, 34);
-    origColor['seminar_hall'] = 0xe8e0d4;
-
-    // Student Activity Centre
-    reg('sac', 'Student Activity Centre', 'facility',
-        'Hub for clubs, societies, cultural activities, gymnasium, music rooms.',
-        ['Students', 'Clubs', 'Gym', 'Activities']);
-    box('sac', -2, 30, 5, 9, 8, MAT.concrete);
-    addLabel('sac', '🎭 SAC', -2, 11, 30);
-    origColor['sac'] = 0xe8e0d4;
+    // Visiting Faculty (distinctive courtyard building)
+    reg('visiting_faculty', 'Visiting Faculty Block', 'residential',
+        'Square courtyard building with tensile cone roof — short-term accommodation for visiting professors and researchers.',
+        ['Visiting', 'Faculty', 'Accommodation']);
+    createVisitingFacultyBuilding(25, -25);
+    origColor['visiting_faculty'] = 0xd4c4a8;
 
     // =====================================================================
-    // 8G. HEALTH, SHOPPING, GUEST HOUSE (z ≈ 40-50)
+    // SPORTS ZONE — VG, BG, FG, CG  (south campus, z ≈ +50 to +90)
     // =====================================================================
 
-    // Health Centre — world: (-63, 44)
-    reg('health', 'Health Centre', 'facility',
-        'Campus health centre — primary healthcare, first aid, medical assistance.',
-        ['Medical', 'Health', 'Clinic']);
-    box('health', -63, 44, 9, 8, 7, MAT.concreteW);
-    addLabel('health', '🏥 Health Centre', -63, 10, 44);
-    origColor['health'] = 0xf0ece6;
+    // VG — Volleyball Ground
+    reg('volleyball', 'Volleyball Ground', 'sports',
+        'Outdoor volleyball court.',
+        ['Volleyball', 'Sports']);
+    ground(-48, 67, 8, 14, MAT.sand);
+    // Court lines
+    box(null, -48, 67, 7.5, 13.5, 0.02, MAT.white, false);
+    const vgMesh = ground(-48, 67, 8, 14, MAT.field);
+    vgMesh.userData.id = 'volleyball';
+    allMeshes.push(vgMesh);
+    meshById['volleyball'] = [vgMesh];
+    origColor['volleyball'] = 0x5da84e;
+    addLabel('volleyball', '🏐 VG', -48, 3, 67);
 
-    // Shopping complex / Canteen — multiple at (85, -38)
-    reg('shopping', 'Shopping Complex & Canteen', 'facility',
-        'Shops, ATMs, stationery, food outlets.',
-        ['Shopping', 'ATM', 'Canteen', 'Food']);
-    box('shopping', 85, -38, 5, 6, 5, MAT.brick);
-    addLabel('shopping', '🛒 Shopping', 85, 8, -38);
-    origColor['shopping'] = 0xc4956a;
+    // BG — Basketball Ground
+    reg('basketball', 'Basketball Ground', 'sports',
+        'Outdoor basketball court.',
+        ['Basketball', 'Sports']);
+    ground(-34, 70, 12, 16, MAT.sand);
+    box(null, -34, 70, 11.5, 15.5, 0.02, MAT.white, false);
+    const bgMesh = ground(-34, 70, 12, 16, MAT.field);
+    bgMesh.userData.id = 'basketball';
+    allMeshes.push(bgMesh);
+    meshById['basketball'] = [bgMesh];
+    origColor['basketball'] = 0x5da84e;
+    addLabel('basketball', '🏀 BG', -34, 3, 70);
 
-    // Guest House — world: (88, 67)
-    reg('guest_house', 'Guest House', 'admin',
-        'Accommodation for guests, visiting faculty, and parents.',
-        ['Guest', 'Visitors', 'Accommodation']);
-    box('guest_house', 88, 67, 9, 8, 7, MAT.hostel);
-    addLabel('guest_house', '🏠 Guest House', 88, 10, 67);
-    origColor['guest_house'] = 0xd4c4a8;
+    // FG — Football Ground
+    reg('football', 'Football Ground', 'sports',
+        'Standard football field for inter-IIT and intra-college matches.',
+        ['Football', 'Soccer']);
+    ground(45, 82, 24, 16, MAT.field);
+    box(null, 33, 82, 0.3, 16, 3, MAT.white, false);   // left goal
+    box(null, 57, 82, 0.3, 16, 3, MAT.white, false);   // right goal
+    const fgMesh = ground(45, 82, 24, 16, MAT.grassLight);
+    fgMesh.userData.id = 'football';
+    allMeshes.push(fgMesh);
+    meshById['football'] = [fgMesh];
+    origColor['football'] = 0x6aaf5e;
+    addLabel('football', '⚽ FG', 45, 4, 82);
 
-    // SBI & Post Office — world: approx (-25, 45)
-    reg('sbi', 'SBI Bank & Post Office', 'facility',
-        'On-campus State Bank of India branch and post office.',
-        ['Bank', 'SBI', 'Post Office']);
-    box('sbi', -25, 45, 8, 6, 5, MAT.concrete);
-    addLabel('sbi', '🏦 SBI Bank', -25, 8, 45);
-    origColor['sbi'] = 0xe8e0d4;
-
-    // =====================================================================
-    // 8H. LARGE SOUTHERN COMPLEX (z ≈ 37-53) — world: (82.5, 44.7)
-    // Image item 11: big structure, w=36, d=17 — Faculty Housing / Apartments
-    // =====================================================================
-    reg('faculty_housing', 'Faculty Housing Complex', 'residential',
-        'Residential quarters for faculty members and senior staff. Multiple apartment blocks.',
-        ['Faculty', 'Housing', 'Apartments']);
-    // Multiple apartment blocks
-    box('faculty_housing', 75, 42, 10, 15, 8, MAT.hostel);
-    box('faculty_housing', 88, 42, 10, 15, 8, MAT.hostelAlt);
-    box('faculty_housing', 75, 52, 12, 4, 8, MAT.hostel);
-    box('faculty_housing', 88, 52, 12, 4, 8, MAT.hostelAlt);
-    addLabel('faculty_housing', '🏘️ Faculty Housing', 82, 11, 45);
-    origColor['faculty_housing'] = 0xd4c4a8;
-
-    // =====================================================================
-    // 8I. HOSTEL ZONE (mid-left area, z ≈ -10 to +5)
-    // From image: buildings at (-35, 3), (-41, 10), (-61, 11), (-69, -12)
-    // =====================================================================
-
-    reg('hostel_1', 'Bhaskara Boys Hostel', 'hostel',
-        'Boys hostel named after Bhaskara II. Multi-storey residential block.',
-        ['Boys', 'Residential']);
-    createHostelBuilding('hostel_1', -35, 3, 12, 16, '🏠 Bhaskara Hostel');
-    origColor['hostel_1'] = 0xd4c4a8;
-
-    reg('hostel_2', 'Aryabhatta Boys Hostel', 'hostel',
-        'Boys hostel named after Aryabhatta, legendary ancient mathematician.',
-        ['Boys', 'Residential']);
-    createHostelBuilding('hostel_2', -42, 10, 12, 14, '🏠 Aryabhatta Hostel');
-    origColor['hostel_2'] = 0xc8b898;
-
-    reg('hostel_3', 'Brahmagupta Boys Hostel', 'hostel',
-        'Boys hostel named after Brahmagupta, ancient mathematician and astronomer.',
-        ['Boys', 'Residential']);
-    createHostelBuilding('hostel_3', -61, 11, 10, 12, '🏠 Brahmagupta Hostel');
-    origColor['hostel_3'] = 0xd4c4a8;
-
-    reg('hostel_4', 'Gargi Girls Hostel', 'hostel',
-        'Girls hostel named after Gargi Vachaknavi, prominent philosopher.',
-        ['Girls', 'Residential']);
-    createHostelBuilding('hostel_4', -69, -12, 12, 14, '🏠 Gargi Hostel');
-    origColor['hostel_4'] = 0xc8b898;
-
-    reg('hostel_5', 'Maitreyi Girls Hostel', 'hostel',
-        'Girls hostel named after Maitreyi, Vedic-era philosopher.',
-        ['Girls', 'Residential']);
-    createHostelBuilding('hostel_5', -45, -1, 12, 16, '🏠 Maitreyi Hostel');
-    origColor['hostel_5'] = 0xd4c4a8;
-
-    reg('hostel_6', 'Married Scholars Hostel', 'hostel',
-        'Accommodation for married research scholars and PhD students.',
-        ['Scholars', 'PhD', 'Married']);
-    createHostelBuilding('hostel_6', -15, -74, 10, 14, '🏠 Scholars Hostel');
-    origColor['hostel_6'] = 0xc8b898;
-
-    // =====================================================================
-    // 8J. DINING / MESS (near hostels)
-    // =====================================================================
-    reg('mess1', 'Central Mess Hall', 'dining',
-        'Main dining facility for hostel residents — breakfast, lunch, dinner.',
-        ['Food', 'Mess', 'Dining']);
-    box('mess1', -50, -10, 8, 5, 5, MAT.brick);
-    addLabel('mess1', '🍽️ Mess Hall', -50, 8, -10);
-    origColor['mess1'] = 0xc4956a;
-
-    reg('mess2', 'Dining Hall 2', 'dining',
-        'Secondary dining facility.',
-        ['Food', 'Dining']);
-    box('mess2', -70, 0, 7, 4, 5, MAT.brickDark);
-    addLabel('mess2', '🍽️ Dining Hall 2', -70, 8, 0);
-    origColor['mess2'] = 0xa07050;
-
-    // =====================================================================
-    // 8K. SPORTS FACILITIES
-    // From image: green areas around z≈ -40 to -60 on left side
-    // =====================================================================
-
-    // Cricket Ground — large green ellipse (left side)
+    // CG — Cricket Ground
     reg('cricket', 'Cricket Ground', 'sports',
-        'Full-size cricket ground with pitch, boundary markings.',
+        'Full-size cricket ground with pitch and boundary markings.',
         ['Cricket', 'Sports']);
-    const cricketGeo = new THREE.CircleGeometry(18, 32);
+    const cricketGeo = new THREE.CircleGeometry(14, 32);
     const cricketMesh = new THREE.Mesh(cricketGeo, MAT.field);
     cricketMesh.rotation.x = -Math.PI / 2;
-    cricketMesh.position.set(-85, 0.05, -40);
+    cricketMesh.position.set(45, 0.05, 120);
     cricketMesh.receiveShadow = true;
     cricketMesh.userData.id = 'cricket';
     scene.add(cricketMesh);
     allMeshes.push(cricketMesh);
     meshById['cricket'] = [cricketMesh];
     origColor['cricket'] = 0x5da84e;
-    // Cricket pitch
-    box(null, -85, -40, 1.5, 10, 0.05, MAT.sand, false);
-    addLabel('cricket', '🏏 Cricket Ground', -85, 4, -40);
-
-    // Football ground
-    reg('football', 'Football Ground', 'sports',
-        'Standard football field for inter-IIT and intra-college matches.',
-        ['Football', 'Soccer']);
-    ground(-50, -50, 28, 18, MAT.field);
-    // Goal posts
-    box(null, -64, -50, 0.3, 5, 3, MAT.white, false);
-    box(null, -36, -50, 0.3, 5, 3, MAT.white, false);
-    const fbMesh = ground(-50, -50, 28, 18, MAT.grassLight);
-    fbMesh.userData.id = 'football';
-    allMeshes.push(fbMesh);
-    meshById['football'] = [fbMesh];
-    origColor['football'] = 0x6aaf5e;
-    addLabel('football', '⚽ Football Ground', -50, 4, -50);
-
-    // Tennis Courts
-    reg('tennis', 'Tennis Courts', 'sports',
-        'Synthetic surface tennis courts for practice and tournaments.',
-        ['Tennis', 'Courts']);
-    ground(-30, -55, 14, 8, MAT.track);
-    // Net lines
-    box(null, -30, -55, 0.1, 7, 1.5, MAT.white, false);
-    box(null, -36, -55, 0.1, 7, 1.5, MAT.white, false);
-    meshById['tennis'] = [box('tennis', -33, -55, 2, 8, 0.2, MAT.track, false)];
-    origColor['tennis'] = 0xc06030;
-    addLabel('tennis', '🎾 Tennis Courts', -30, 3, -55);
-
-    // Indoor Sports Complex
-    reg('sports_complex', 'Indoor Sports Complex', 'sports',
-        'Multi-sport indoor complex — basketball, badminton, TT, gym, fitness center.',
-        ['Indoor', 'Gym', 'Basketball', 'Badminton']);
-    box('sports_complex', -15, -60, 16, 10, 8, MAT.sports);
-    addLabel('sports_complex', '🏀 Sports Complex', -15, 11, -60);
-    origColor['sports_complex'] = 0xc0a888;
-
-    // Swimming Pool
-    reg('pool', 'Swimming Pool', 'sports',
-        'Swimming pool facility.',
-        ['Swimming', 'Pool']);
-    // Pool deck
-    box(null, 5, -55, 10, 8, 0.5, MAT.sidewalk, false);
-    // Water
-    const poolGeo = new THREE.BoxGeometry(8, 1.5, 6);
-    const poolMesh = new THREE.Mesh(poolGeo, MAT.poolWater);
-    poolMesh.position.set(5, -0.3, -55);
-    poolMesh.userData.id = 'pool';
-    scene.add(poolMesh);
-    allMeshes.push(poolMesh);
-    meshById['pool'] = [poolMesh];
-    origColor['pool'] = 0x40a0d0;
-    addLabel('pool', '🏊 Pool', 5, 3, -55);
+    box(null, 45, 120, 1.5, 8, 0.05, MAT.sand, false); // pitch strip
+    addLabel('cricket', '🏏 CG', 45, 4, 120);
 
     // =====================================================================
-    // 8L. BUILDINGS in z ≈ 25-50 (from image analysis items 22-34)
-    // Various smaller academic/lab buildings scattered through campus center
-    // =====================================================================
-
-    reg('chemical_lab', 'Chemical Engineering Lab', 'academic',
-        'Chemical Engineering experimental and process labs.',
-        ['Chemical', 'Process', 'Labs']);
-    box('chemical_lab', 16, 34, 5, 6, 8, MAT.academicB);
-    addLabel('chemical_lab', '⚗️ ChemE Lab', 16, 11, 34);
-    origColor['chemical_lab'] = 0xd8cfc0;
-
-    reg('physics_lab', 'Physics Lab', 'academic',
-        'Physics department experimental and optics labs.',
-        ['Physics', 'Optics', 'Experimental']);
-    box('physics_lab', 50, 32, 5, 3.5, 8, MAT.academic);
-    addLabel('physics_lab', '⚛️ Physics Lab', 50, 11, 32);
-    origColor['physics_lab'] = 0xe0d8cc;
-
-    reg('civil_lab', 'Civil Engineering Lab', 'academic',
-        'Civil Engineering structures and materials testing lab.',
-        ['Civil', 'Structures', 'Materials']);
-    box('civil_lab', 36, 33, 6, 5, 8, MAT.concrete);
-    addLabel('civil_lab', '🏗️ Civil Lab', 36, 11, 33);
-    origColor['civil_lab'] = 0xe8e0d4;
-
-    // Auditorium — world: (-24, 40)
-    reg('auditorium', 'Main Auditorium', 'admin',
-        'Large auditorium for convocations, Zeitgeist, Advitiya, and major events.',
-        ['Auditorium', 'Events', 'Convocation']);
-    box('auditorium', -22, 40, 5, 6, 9, MAT.admin);
-    addLabel('auditorium', '🎭 Auditorium', -22, 12, 40);
-    origColor['auditorium'] = 0xd4ccc0;
-
-    // =====================================================================
-    // 8M. LARGE BOTTOM-CENTER COMPLEX (z ≈ 87, the gate area complex)
-    // From image item 1: world (-0.6, 87.2) w=75, d=16.5
-    // This includes the gate plaza, security, boundary wall structures
-    // =====================================================================
-    reg('gate_plaza', 'Gate Plaza & Security', 'infrastructure',
-        'Entry plaza with security booth, visitor registration, and vehicle checking.',
-        ['Security', 'Entry', 'Parking']);
-    ground(-0.6, 92, 70, 10, MAT.sidewalk);
-    box('gate_plaza', -25, 92, 4, 4, 3, MAT.concrete);   // Security booth left
-    box('gate_plaza', 22, 92, 4, 4, 3, MAT.concrete);    // Security booth right
-    origColor['gate_plaza'] = 0xe8e0d4;
-
-    // =====================================================================
-    // 8N. LARGER BUILDING at (1547-1651, 972-1064) => world (31, 21) — already CRF
-    // Building at (1693, 917)=>(43, 7) — already EE labs
-    // Building at (1702, 982)=>(44, 16) — already ME labs
-    // Item at (1864, 1130)=>(64.4, 36.1)-(100.5, 53.3) => Faculty housing (done)
-    // =====================================================================
-
-    // Additional building near (42, 45)
-    reg('visiting_faculty', 'Visiting Faculty Block', 'residential',
-        'Short-term accommodation for visiting professors and researchers.',
-        ['Visiting', 'Faculty', 'Accommodation']);
-    createVisitingFacultyBuilding(41, 45);
-    origColor['visiting_faculty'] = 0xd4c4a8;
-
-    // Building at (58, 39)
-    reg('staff_quarters', 'Staff Quarters', 'residential',
-        'Residential quarters for institute staff.',
-        ['Staff', 'Quarters']);
-    box('staff_quarters', 58, 39, 9, 4, 6, MAT.hostelAlt);
-    addLabel('staff_quarters', '🏘️ Staff Quarters', 58, 9, 39);
-    origColor['staff_quarters'] = 0xc8b898;
-
-    // Transformer / Utility at (64, 16)
-    reg('utility', 'Power Substation', 'infrastructure',
-        'Campus electrical power substation and transformer complex.',
-        ['Power', 'Electrical', 'Utility']);
-    box('utility', 64, 16, 5, 6, 5, MAT.metal);
-    addLabel('utility', '⚡ Substation', 64, 8, 16);
-    origColor['utility'] = 0x8899aa;
-
-    // =====================================================================
-    // 8O. BOUNDARY WALL (perimeter)
+    // BOUNDARY WALLS
     // =====================================================================
     reg('boundary', 'Campus Boundary Wall', 'infrastructure',
         'Perimeter boundary wall of the 525-acre permanent campus.',
         ['Boundary', 'Wall', 'Perimeter']);
-    // Draw boundary walls
-    wall(-140, -95, 140, -95, 2.5, 0.4);  // North wall
-    wall(-140, 98, 140, 98, 2.5, 0.4);    // South wall
-    wall(-140, -95, -140, 98, 2.5, 0.4);  // West wall
-    wall(140, -95, 140, 98, 2.5, 0.4);    // East wall
+    wall(-200, -140, 200, -140, 2.5, 0.4);  // North wall
+    wall(-200, 150, 200, 150, 2.5, 0.4);    // South wall
+    wall(-200, -140, -200, 150, 2.5, 0.4);  // West wall
+    wall(200, -140, 200, 150, 2.5, 0.4);    // East wall
     origColor['boundary'] = 0xe8e0d4;
 
     // =====================================================================
-    // 8P. ADDITIONAL SCATTERED BUILDINGS FROM IMAGE
+    // COMMENTED-OUT STRUCTURES — may be re-enabled later
     // =====================================================================
+    /*
+    // --- Academic Row (z ≈ 0) --- named blocks along SROW
+    reg('ramanujan', 'S. Ramanujan Block', 'academic', '...', ['Mathematics']);
+    box('ramanujan', -42, 0, 20, 8, 12, MAT.academic);
+    addLabel('ramanujan', '📐 Ramanujan Block', -42, 16, 0);
+    origColor['ramanujan'] = 0xe0d8cc;
 
-    // Building at bottom left (image item 7): world (-139, 82) small
-    reg('pump_house', 'Pump House / Water Tank', 'infrastructure',
-        'Campus water supply pump house and elevated storage tank.',
-        ['Water', 'Pump', 'Tank']);
-    box('pump_house', -139, 82, 15, 8, 6, MAT.concrete);
-    // Water tank cylinder
-    const tankGeo = new THREE.CylinderGeometry(3, 3, 12, 16);
-    const tankMesh = new THREE.Mesh(tankGeo, MAT.metal);
-    tankMesh.position.set(-132, 6, 82);
-    tankMesh.castShadow = true;
-    scene.add(tankMesh);
-    addLabel('pump_house', '💧 Water Tank', -135, 15, 82);
-    origColor['pump_house'] = 0xe8e0d4;
+    reg('bhatnagar', 'S. Bhatnagar Block', 'academic', '...', ['Chemistry']);
+    box('bhatnagar', -8, 0, 16, 8, 12, MAT.academicB);
+    addLabel('bhatnagar', '🧪 Bhatnagar Block', -8, 16, 0);
+    origColor['bhatnagar'] = 0xd8cfc0;
 
-    // Building at image (2014, 560) => world (82.7, -41.5)
-    reg('nss_ncc', 'NSS / NCC Office', 'facility',
-        'National Service Scheme and National Cadet Corps offices.',
-        ['NSS', 'NCC', 'Service']);
-    box('nss_ncc', 83, -38, 5, 6, 6, MAT.brick);
-    origColor['nss_ncc'] = 0xc4956a;
+    reg('jcbose', 'J.C. Bose Block', 'academic', '...', ['Physics']);
+    box('jcbose', 12, 0, 12, 8, 12, MAT.academic);
+    addLabel('jcbose', '📡 J.C. Bose Block', 12, 16, 0);
+    origColor['jcbose'] = 0xe0d8cc;
 
-    // Small buildings: (986, 912) => world (-42, 6.5)
-    reg('laundry', 'Laundry Block', 'facility',
-        'Laundry services for hostel residents.',
-        ['Laundry', 'Services']);
-    box('laundry', -42, 7, 5, 6, 4, MAT.brickDark);
-    origColor['laundry'] = 0xa07050;
+    reg('visvesvaraya', 'M. Visvesvaraya Block', 'academic', '...', ['Mechanical']);
+    box('visvesvaraya', 31, 0, 16, 8, 12, MAT.academicB);
+    addLabel('visvesvaraya', '⚙️ Visvesvaraya Block', 31, 16, 0);
+    origColor['visvesvaraya'] = 0xd8cfc0;
 
-    // Building at (1386, 382) => (5.1, -65.7) - (9.9, -59.7)
-    reg('sports_office', 'Sports Office', 'sports',
-        'Sports department office and equipment storage.',
-        ['Sports', 'Office', 'Equipment']);
-    box('sports_office', 8, -63, 5, 6, 5, MAT.sports);
-    origColor['sports_office'] = 0xc0a888;
+    reg('satish_dhawan', 'Satish Dhawan Block', 'academic', '...', ['Aerospace']);
+    box('satish_dhawan', 63, 0, 12, 8, 12, MAT.academic);
+    addLabel('satish_dhawan', '🚀 Satish Dhawan', 63, 16, 0);
+    origColor['satish_dhawan'] = 0xe0d8cc;
 
-    // (1212, 296) => (-14, -77) — additional near hostel area
-    reg('canteen_2', 'Night Canteen', 'dining',
-        'Late-night food outlet near hostel zone.',
-        ['Food', 'Night', 'Canteen']);
-    box('canteen_2', -14, -77, 5, 6, 4, MAT.brick);
-    origColor['canteen_2'] = 0xc4956a;
+    reg('khorana', 'Har Gobind Khorana Block', 'academic', '...', ['Biomedical']);
+    box('khorana', 77, 0, 12, 8, 12, MAT.academicB);
+    addLabel('khorana', '🧬 Khorana Block', 77, 16, 0);
+    origColor['khorana'] = 0xd8cfc0;
+
+    // --- Labs row (z ≈ 14) ---
+    reg('cse', 'CSE Department', 'academic', '...', ['CSE']);
+    box('cse', -8, 14, 12, 6, 11, MAT.academic);
+    reg('ee_labs', 'EE Research Labs', 'academic', '...', ['Electrical']);
+    box('ee_labs', 63, 14, 10, 6, 10, MAT.academicB);
+    reg('mech_labs', 'ME Research Labs', 'academic', '...', ['Mechanical']);
+    box('mech_labs', 77, 14, 10, 6, 10, MAT.academic);
+    reg('biotech', 'Biotech Lab', 'academic', '...', ['Biotech']);
+    box('biotech', 12, 14, 8, 6, 9, MAT.academicB);
+
+    // --- Faculty Housing ---
+    reg('faculty_housing', 'Faculty Housing Complex', 'residential', '...', ['Faculty']);
+    box('faculty_housing', 150, 0, 10, 15, 8, MAT.hostel);
+    box('faculty_housing', 162, 0, 10, 15, 8, MAT.hostelAlt);
+    addLabel('faculty_housing', '🏘️ Faculty Housing', 156, 11, 0);
+    origColor['faculty_housing'] = 0xd4c4a8;
+
+    // --- Guest House ---
+    reg('guest_house', 'Guest House', 'admin', '...', ['Guest']);
+    box('guest_house', 155, -40, 8, 8, 7, MAT.hostel);
+    addLabel('guest_house', '🏠 Guest House', 155, 10, -40);
+    origColor['guest_house'] = 0xd4c4a8;
+
+    // --- Server Room ---
+    reg('server_room', 'Data Center & IT', 'facility', '...', ['IT']);
+    box('server_room', 125, 0, 6, 10, 10, MAT.metal);
+    addLabel('server_room', '🖥️ Data Center', 125, 13, 0);
+    origColor['server_room'] = 0x8899aa;
+
+    // --- Indoor Sports Complex ---
+    reg('sports_complex', 'Indoor Sports Complex', 'sports', '...', ['Indoor']);
+    box('sports_complex', 1.5, 60, 14, 8, 8, MAT.sports);
+    addLabel('sports_complex', '🏀 Sports Complex', 1.5, 11, 60);
+    origColor['sports_complex'] = 0xc0a888;
+
+    // --- Other facilities ---
+    reg('admin_block', 'Administrative Block', 'admin', '...', ['Admin']);
+    box('admin_block', -35, -59, 20, 14, 10, MAT.admin);
+    reg('crf', 'Central Research Facility', 'facility', '...', ['Research']);
+    box('crf', -3, -58, 16, 6, 10, MAT.concrete);
+    reg('awadh', 'AWaDH Innovation Hub', 'facility', '...', ['Innovation']);
+    box('awadh', 31, -65, 14, 5, 9, MAT.concrete);
+    reg('sac', 'Student Activity Centre', 'facility', '...', ['Students']);
+    box('sac', -83, -62, 8, 8, 8, MAT.concrete);
+    reg('sbi', 'SBI Bank & Post Office', 'facility', '...', ['Bank']);
+    box('sbi', -83, -75, 6, 5, 5, MAT.concrete);
+    */
 }
 
-// =====================================================================
-// 9. LANDSCAPING — Trees, Gardens, Green Spaces
-// =====================================================================
-function buildLandscaping() {
-    // Tree lines along roads
-    treeRow(-0.6, 30, -0.6, 80, 20);          // Along main gate road
-    treeRow(-0.6, -20, -0.6, -70, 18);         // North main road
-    treeRow(-65, -70, -65, 20, 25);             // Left campus road
-    treeRow(55, -40, 55, 50, 25);               // Right campus road
-    treeRow(-120, -84, 120, -84, 30);           // Along academic row
-    treeRow(-120, 2, 120, 2, 30);               // Ring road trees
 
-    // Clusters in open areas
-    treeRow(-120, -60, -95, -20, 15);           // West forest
-    treeRow(-120, 50, -100, 80, 12);            // Southwest trees
-    treeRow(110, -60, 135, -20, 15);            // East forest
-    treeRow(110, 30, 135, 70, 12);              // Southeast trees
-    treeRow(30, 60, 60, 80, 15);                // South-center trees
-    treeRow(-60, 60, -30, 80, 12);              // South-left trees
-
-    // Garden near admin
-    treeRow(-115, 5, -100, 25, 8, 0.5, 0.8);
-    treeRow(-75, -30, -70, -5, 6, 0.6, 0.9);
-
-    // Trees around hostels
-    treeRow(-55, -15, -30, 15, 12, 0.6, 1.0);
-    treeRow(-80, -20, -65, 10, 10, 0.7, 1.1);
-
-    // Random scattered trees
-    for (let i = 0; i < 60; i++) {
-        const rx = -130 + Math.random() * 260;
-        const rz = -90 + Math.random() * 180;
-        // Skip building areas (rough check)
-        if (Math.abs(rz + 84) < 12 && rx > -70 && rx < 100) continue;
-        if (Math.abs(rz) < 8 && Math.abs(rx) < 20) continue;
-        tree(rx, rz, 0.5 + Math.random() * 0.8);
-    }
-
-    // Flower beds / garden patches
-    ground(-0.6, 70, 8, 8, MAT.grassLight);     // Near gate garden
-    ground(-100, 10, 6, 6, MAT.grassLight);     // Admin garden
-    ground(30, -70, 6, 4, MAT.grassLight);      // Near academic
-    ground(-50, 30, 5, 5, MAT.grassLight);      // Mid campus garden
-}
-
-// =====================================================================
-// 10. SATLUJ RIVER (northern edge of campus)
-// =====================================================================
-function buildRiver() {
-    const riverPts = [
-        new THREE.Vector3(-160, 0.08, -98),
-        new THREE.Vector3(-110, 0.08, -96),
-        new THREE.Vector3(-60, 0.08, -99),
-        new THREE.Vector3(-10, 0.08, -97),
-        new THREE.Vector3(40, 0.08, -99),
-        new THREE.Vector3(90, 0.08, -96),
-        new THREE.Vector3(140, 0.08, -98),
-        new THREE.Vector3(170, 0.08, -95),
-    ];
-    const curve = new THREE.CatmullRomCurve3(riverPts);
-    const tubeGeo = new THREE.TubeGeometry(curve, 100, 5, 8, false);
-    scene.add(new THREE.Mesh(tubeGeo, MAT.water));
-
-    // River banks (sand strips)
-    const bankPts1 = riverPts.map(p => new THREE.Vector3(p.x, 0.04, p.z + 6));
-    const bankPts2 = riverPts.map(p => new THREE.Vector3(p.x, 0.04, p.z - 6));
-    const bankCurve1 = new THREE.CatmullRomCurve3(bankPts1);
-    const bankCurve2 = new THREE.CatmullRomCurve3(bankPts2);
-    scene.add(new THREE.Mesh(new THREE.TubeGeometry(bankCurve1, 80, 2, 6, false), MAT.sand));
-    scene.add(new THREE.Mesh(new THREE.TubeGeometry(bankCurve2, 80, 2, 6, false), MAT.sand));
-
-    addLabel(null, '🌊 Satluj River', 0, 5, -97);
-}
-
-// =====================================================================
-// 11. SIWALIK HILLS (background mountains south of campus)
-// =====================================================================
-function buildHills() {
-    // Simple triangular mountains in the background
-    const hillPositions = [
-        [-100, 130, 25], [-60, 125, 30], [-20, 135, 22],
-        [20, 128, 28], [60, 132, 25], [100, 127, 20],
-        [-130, 135, 18], [130, 130, 22], [-40, 140, 15],
-        [40, 138, 18], [0, 142, 12],
-    ];
-
-    hillPositions.forEach(([hx, hz, hh]) => {
-        const geo = new THREE.ConeGeometry(20 + Math.random() * 15, hh, 6);
-        const mat = new THREE.MeshStandardMaterial({
-            color: 0x4a6741 + Math.floor(Math.random() * 0x101010),
-            roughness: 0.9,
-        });
-        const hill = new THREE.Mesh(geo, mat);
-        hill.position.set(hx, hh / 2 - 2, hz);
-        hill.castShadow = true;
-        scene.add(hill);
-    });
-
-    addLabel(null, '⛰️ Siwalik Hills', 0, 20, 140);
-}
 
 // =====================================================================
 // 12. COMPASS
@@ -1806,10 +1660,7 @@ function animate() {
 // =====================================================================
 buildTerrain();
 buildRoads();
-// buildAllBuildings();
-// buildLandscaping();
-// buildRiver();
-// buildHills();
+buildAllBuildings();
 buildCompass();
 populateList();
 animate();
