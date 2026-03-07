@@ -1135,25 +1135,25 @@ function buildAllBuildings() {
     // ROW 1 — HOSTELS H1-H3, PARKING, DEPARTMENTS D1-D4
     // =====================================================================
 
-    // H1 — Hostel 1 (far left, top row)
-    reg('hostel_1', 'Hostel 1', 'hostel',
-        'Student hostel block in the north-west residential cluster.',
+    // H1 — Hostel 1 (far left, top row) — detailed multi-wing from hostel.html
+    reg('hostel_1', 'Chenab Hostel', 'hostel',
+        'Chenab Hostel — student hostel block in the north-west residential cluster. Multi-wing complex with green balconies, central dome, and courtyards.',
         ['Hostel', 'Residential']);
-    createHostelBlock('hostel_1', -159, -56, 15, 15, 10, '🏠 H1');
+    createHostelBuilding('hostel_1', -159, -56, 15, 15, '🏠 Chenab Hostel');
     origColor['hostel_1'] = 0xd4c4a8;
 
-    // H2 — Hostel 2
-    reg('hostel_2', 'Hostel 2', 'hostel',
-        'Student hostel block adjacent to H1.',
+    // H2 — Hostel 2 — detailed multi-wing from hostel.html
+    reg('hostel_2', 'Beas Hostel', 'hostel',
+        'Beas Hostel — student hostel block adjacent to Chenab. Multi-wing complex with green balconies, central dome, and courtyards.',
         ['Hostel', 'Residential']);
-    createHostelBlock('hostel_2', -133, -56, 15, 15, 10, '🏠 H2');
+    createHostelBuilding('hostel_2', -133, -56, 15, 15, '🏠 Beas Hostel');
     origColor['hostel_2'] = 0xc8b898;
 
-    // H3 — Hostel 3 (slightly larger)
-    reg('hostel_3', 'Hostel 3', 'hostel',
-        'Student hostel block, larger footprint.',
+    // H3 — Hostel 3 — detailed multi-wing from hostel.html
+    reg('hostel_3', 'Satluj Hostel', 'hostel',
+        'Satluj Hostel — student hostel block. Multi-wing complex with green balconies, central dome, and courtyards.',
         ['Hostel', 'Residential']);
-    createHostelBlock('hostel_3', -102, -58, 15, 15, 10, '🏠 H3');
+    createHostelBuilding('hostel_3', -102, -58, 15, 15, '🏠 Satluj Hostel');
     origColor['hostel_3'] = 0xd4c4a8;
 
     // P — Parking Area
@@ -1165,35 +1165,35 @@ function buildAllBuildings() {
     origColor['parking'] = 0x484848;
 
     // D1 — Department 1
-    reg('dept_1', 'Department Block 1', 'academic',
-        'Academic department building.',
+    reg('dept_1', 'Satish Dhawan Block', 'academic',
+        'Satish Dhawan Block — academic department building.',
         ['Department', 'Academic']);
     box('dept_1', -58, -58, 14, 14, 12, MAT.academic);
-    addLabel('dept_1', '🏫 D1', -58, 15, -58);
+    addLabel('dept_1', '🏫 Satish Dhawan', -58, 15, -58);
     origColor['dept_1'] = 0xe0d8cc;
 
     // D2 — Department 2 (large central block)
-    reg('dept_2', 'Department Block 2', 'academic',
-        'Main academic department building — largest block on campus.',
+    reg('dept_2', 'SS Bhatnagar Block', 'academic',
+        'SS Bhatnagar Block — main academic department building, largest block on campus.',
         ['Department', 'Academic']);
     box('dept_2', -35, -58, 14, 14, 13, MAT.academicB);
-    addLabel('dept_2', '🏫 D2', -35, 16, -58);
+    addLabel('dept_2', '🏫 SS Bhatnagar', -35, 16, -58);
     origColor['dept_2'] = 0xd8cfc0;
 
     // D3 — Department 3
-    reg('dept_3', 'Department Block 3', 'academic',
-        'Academic department building, right of centre.',
+    reg('dept_3', 'JC Bose Block', 'academic',
+        'JC Bose Block — academic department building, right of centre.',
         ['Department', 'Academic']);
     box('dept_3', 30, -58, 15, 10, 12, MAT.academic);
-    addLabel('dept_3', '🏫 D3', 30, 15, -58);
+    addLabel('dept_3', '🏫 JC Bose', 30, 15, -58);
     origColor['dept_3'] = 0xe0d8cc;
 
     // D4 — Department 4
-    reg('dept_4', 'Department Block 4', 'academic',
-        'Academic department building on the eastern side.',
+    reg('dept_4', 'Ramanujan Block', 'academic',
+        'Ramanujan Block — academic department building on the eastern side.',
         ['Department', 'Academic']);
     box('dept_4', 49, -63, 14, 8, 12, MAT.academicB);
-    addLabel('dept_4', '🏫 D4', 49, 15, -63);
+    addLabel('dept_4', '🏫 Ramanujan', 49, 15, -63);
     origColor['dept_4'] = 0xd8cfc0;
 
     // =====================================================================
@@ -1201,17 +1201,17 @@ function buildAllBuildings() {
     // =====================================================================
 
     // H5 — Hostel 5 (below H1)
-    reg('hostel_5', 'Hostel 5', 'hostel',
-        'Student hostel in the lower-left residential area.',
+    reg('hostel_5', 'Brahmaputra Girls Hostel', 'hostel',
+        'Brahmaputra Girls Hostel — student hostel in the lower-left residential area.',
         ['Hostel', 'Residential']);
-    createHostelBlock('hostel_5', -139, -27, 10, 8, 10, '🏠 H5');
+    createHostelBlock('hostel_5', -139, -27, 10, 8, 10, '🏠 Brahmaputra Girls');
     origColor['hostel_5'] = 0xd4c4a8;
 
     // H4 — Hostel 4 (below H2)
-    reg('hostel_4', 'Hostel 4', 'hostel',
-        'Student hostel in the lower-left residential area.',
+    reg('hostel_4', 'Brahmaputra Boys Hostel', 'hostel',
+        'Brahmaputra Boys Hostel — student hostel in the lower-left residential area.',
         ['Hostel', 'Residential']);
-    createHostelBlock('hostel_4', -147, -15, 10, 8, 10, '🏠 H4');
+    createHostelBlock('hostel_4', -147, -15, 10, 8, 10, '🏠 Brahmaputra Boys');
     origColor['hostel_4'] = 0xc8b898;
 
     // Mess — Dining Hall
@@ -1219,7 +1219,7 @@ function buildAllBuildings() {
         'Main dining facility for hostel residents — breakfast, lunch, dinner.',
         ['Food', 'Mess', 'Dining']);
     box('mess', -110, -15, 14, 10, 5, MAT.brick);
-    addLabel('mess', '🍽️ Mess', -120, 8, -15);
+    addLabel('mess', '🍽️ Mess', -110, 8, -15);
     origColor['mess'] = 0xc4956a;
 
     // UT — Utility Block
@@ -1227,7 +1227,7 @@ function buildAllBuildings() {
         'Campus utility services — power, water treatment, maintenance.',
         ['Utility', 'Services']);
     box('utility', -75, -41, 6, 5, 5, MAT.concrete);
-    addLabel('utility', '🔧 UT', -75, 8, -41);
+    addLabel('utility', '🔧 Utility Block', -75, 8, -41);
     origColor['utility'] = 0xe8e0d4;
 
     // MC — Medical Centre
@@ -1235,14 +1235,14 @@ function buildAllBuildings() {
         'Campus health centre — primary healthcare, first aid, medical assistance.',
         ['Medical', 'Health', 'Clinic']);
     box('medical', -75, -33, 8, 6, 6, MAT.concreteW);
-    addLabel('medical', '🏥 MC', -75, 9, -33);
+    addLabel('medical', '🏥 Medical Centre', -75, 9, -33);
     origColor['medical'] = 0xf0ece6;
 
     // H6 — Hostel 6
-    reg('hostel_6', 'Hostel 6', 'hostel',
-        'Student hostel south of the utility and medical blocks.',
+    reg('hostel_6', 'Raavi Hostel', 'hostel',
+        'Raavi Hostel — student hostel south of the utility and medical blocks.',
         ['Hostel', 'Residential']);
-    createHostelBlock('hostel_6', -72, -15, 15, 10, 10, '🏠 H6');
+    createHostelBlock('hostel_6', -72, -15, 15, 10, 10, '🏠 Raavi Hostel');
     origColor['hostel_6'] = 0xd4c4a8;
 
     // Workshop
