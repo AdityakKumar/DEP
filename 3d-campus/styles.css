@@ -39,13 +39,28 @@ body {
 .hbtn.active { background:rgba(59,130,246,.25); border-color:rgba(59,130,246,.45); color:#93c5fd; }
 
 /* ---- Side Panel ---- */
+#btnSidebar {
+    position: fixed; top:74px; left:14px; z-index:95;
+    width:40px; height:40px; border-radius:10px; border:1px solid rgba(255,255,255,.1);
+    background:rgba(15,23,42,.92); backdrop-filter:blur(18px);
+    color:#e2e8f0; font-size:18px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 16px rgba(0,0,0,.3); transition:all .2s;
+}
+#btnSidebar:hover { background:rgba(30,40,65,.95); transform:scale(1.05); }
+
 #sidePanel {
-    position: fixed; top:64px; left:10px; width:270px;
-    max-height: calc(100vh - 80px);
+    position: fixed; top:120px; left:10px; width:270px;
+    max-height: calc(100vh - 135px);
     background: rgba(15,23,42,.92); backdrop-filter: blur(18px);
     border-radius: 11px; border:1px solid rgba(255,255,255,.07);
     z-index: 90; display:flex; flex-direction:column;
     box-shadow: 0 6px 28px rgba(0,0,0,.3); overflow:hidden;
+    transition: transform .3s ease, opacity .3s ease;
+}
+#sidePanel.collapsed {
+    transform: translateX(-290px);
+    opacity: 0; pointer-events: none;
 }
 .sp-head { padding:14px; border-bottom:1px solid rgba(255,255,255,.05); }
 .sp-head h2 { font-size:14px; font-weight:600; margin-bottom:8px; }
@@ -73,7 +88,7 @@ body {
 
 /* ---- Info Panel ---- */
 #infoPanel {
-    position:fixed; bottom:18px; right:18px; width:320px;
+    position:fixed; bottom:18px; right:160px; width:320px;
     background:rgba(15,23,42,.95); backdrop-filter:blur(18px);
     border-radius:12px; border:1px solid rgba(255,255,255,.09);
     padding:18px; z-index:95; box-shadow:0 10px 36px rgba(0,0,0,.4);
@@ -94,7 +109,7 @@ body {
 
 /* ---- Legend ---- */
 #legend {
-    position:fixed; bottom:18px; left:10px;
+    position:fixed; bottom:18px; right:18px;
     background:rgba(15,23,42,.92); backdrop-filter:blur(16px);
     border-radius:9px; border:1px solid rgba(255,255,255,.07);
     padding:12px 14px; z-index:90;

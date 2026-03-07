@@ -56,10 +56,10 @@ const skyMat = new THREE.ShaderMaterial({
 });
 scene.add(new THREE.Mesh(skyGeo, skyMat));
 
-const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 1200);
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 1200);
 camera.position.set(0, 160, 180);
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
@@ -101,7 +101,8 @@ sun.shadow.mapSize.set(4096, 4096);
 const sc = sun.shadow.camera;
 sc.left = -300; sc.right = 300; sc.top = 200; sc.bottom = -200;
 sc.near = 1; sc.far = 600;
-sun.shadow.bias = -0.0004;
+sun.shadow.bias = -0.001;
+sun.shadow.normalBias = 0.02;
 scene.add(sun);
 
 const fill = new THREE.DirectionalLight(0x8ec8f0, 0.35);
@@ -129,7 +130,7 @@ const MAT = {
     concreteW:  new THREE.MeshStandardMaterial({ color: 0xf0ece6, roughness: 0.65, metalness: 0.05 }),
     brick:      new THREE.MeshStandardMaterial({ color: 0xc4956a, roughness: 0.75, metalness: 0 }),
     brickDark:  new THREE.MeshStandardMaterial({ color: 0xa07050, roughness: 0.8, metalness: 0 }),
-    glass:      new THREE.MeshStandardMaterial({ color: 0x88bbdd, roughness: 0.15, metalness: 0.55, transparent: true, opacity: 0.7 }),
+    glass:      new THREE.MeshStandardMaterial({ color: 0x88bbdd, roughness: 0.15, metalness: 0.55, transparent: true, opacity: 0.7, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
     roof:       new THREE.MeshStandardMaterial({ color: 0xd0c8bc, roughness: 0.6, metalness: 0.1 }),
     roofRed:    new THREE.MeshStandardMaterial({ color: 0xb05040, roughness: 0.7, metalness: 0.05 }),
     roofDark:   new THREE.MeshStandardMaterial({ color: 0x706860, roughness: 0.7, metalness: 0.1 }),
@@ -215,7 +216,7 @@ function ground(x, z, w, d, mat) {
     const geo = new THREE.PlaneGeometry(w, d);
     const mesh = new THREE.Mesh(geo, mat);
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(x, 0.02, z);
+    mesh.position.set(x, 0.05, z);
     mesh.receiveShadow = true;
     scene.add(mesh);
     return mesh;
@@ -226,7 +227,7 @@ function road(x, z, w, d) {
     const geo = new THREE.PlaneGeometry(w, d);
     const mesh = new THREE.Mesh(geo, MAT.road);
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(x, 0.06, z);
+    mesh.position.set(x, 0.12, z);
     mesh.receiveShadow = true;
     scene.add(mesh);
     return mesh;
@@ -242,12 +243,440 @@ function roadWithLine(x, z, w, d, isVertical = true) {
         const dash = new THREE.Mesh(dGeo, MAT.white);
         dash.rotation.x = -Math.PI / 2;
         if (isVertical) {
-            dash.position.set(x, 0.07, z - d / 2 + i * 4 + 2);
+            dash.position.set(x, 0.15, z - d / 2 + i * 4 + 2);
         } else {
-            dash.position.set(x - w / 2 + i * 4 + 2, 0.07, z);
+            dash.position.set(x - w / 2 + i * 4 + 2, 0.15, z);
         }
         scene.add(dash);
     }
+}
+
+// ── Mess Complex (detailed structure from satellite imagery) ─────────
+function buildMessComplex(id, cx, cz) {
+    const messGroup = new THREE.Group();
+
+    const wallMat = MAT.concrete;
+    const roofCapMat = MAT.roofDark;
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8, metalness: 0.2 });
+
+    const bHeight = 10;
+    const exSettings = { depth: bHeight, bevelEnabled: false };
+
+    function addExtruded(shape, settings, mat) {
+        const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, settings), mat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.userData.id = id;
+        messGroup.add(mesh);
+        return mesh;
+    }
+
+    // --- Left Wing (angled trapezoid) ---
+    const leftShape = new THREE.Shape();
+    leftShape.moveTo(-45, -5);
+    leftShape.lineTo(-15, 10);
+    leftShape.lineTo(-15, -10);
+    leftShape.lineTo(-45, -25);
+    leftShape.lineTo(-45, -5);
+    addExtruded(leftShape, exSettings, wallMat);
+
+    // --- Right Wing (mirror of left) ---
+    const rightShape = new THREE.Shape();
+    rightShape.moveTo(15, 10);
+    rightShape.lineTo(45, -5);
+    rightShape.lineTo(45, -25);
+    rightShape.lineTo(15, -10);
+    rightShape.lineTo(15, 10);
+    addExtruded(rightShape, exSettings, wallMat);
+
+    // --- Center Back block (bridges the two wings) ---
+    const centerBackShape = new THREE.Shape();
+    centerBackShape.moveTo(-15, -10);
+    centerBackShape.lineTo(15, -10);
+    centerBackShape.lineTo(15, 0);
+    centerBackShape.lineTo(-15, 0);
+    centerBackShape.lineTo(-15, -10);
+    addExtruded(centerBackShape, exSettings, wallMat);
+
+    // --- Center roof slab with jutting entrance canopy ---
+    const roofShape = new THREE.Shape();
+    roofShape.moveTo(-15, 0);
+    roofShape.lineTo(15, 0);
+    roofShape.lineTo(15, 10);
+    roofShape.lineTo(6, 10);
+    roofShape.lineTo(4, 15);
+    roofShape.lineTo(-4, 15);
+    roofShape.lineTo(-6, 10);
+    roofShape.lineTo(-15, 10);
+    roofShape.lineTo(-15, 0);
+    const roofSettings = { depth: 2, bevelEnabled: false };
+    const centerRoof = addExtruded(roofShape, roofSettings, roofCapMat);
+    centerRoof.position.z = bHeight - 2;
+
+    // --- Gate supporting pillars ---
+    const pGeo = new THREE.BoxGeometry(2, 2, bHeight - 2);
+    const p1 = new THREE.Mesh(pGeo, wallMat);
+    p1.position.set(-13, 8, (bHeight - 2) / 2);
+    p1.castShadow = true;
+    p1.userData.id = id;
+    messGroup.add(p1);
+    const p2 = new THREE.Mesh(pGeo, wallMat);
+    p2.position.set(13, 8, (bHeight - 2) / 2);
+    p2.castShadow = true;
+    p2.userData.id = id;
+    messGroup.add(p2);
+
+    // --- Glass front facades with mullion frames ---
+    function addGlass(x1, y1, x2, y2) {
+        const dx = x2 - x1, dy = y2 - y1;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        const ang = Math.atan2(dy, dx);
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(len, bHeight), MAT.glass);
+        plane.rotation.order = 'ZXY';
+        plane.rotation.x = Math.PI / 2;
+        plane.rotation.z = ang;
+        const nx = -dy / len, ny = dx / len;
+        const offset = 0.25;
+        plane.position.set(x1 + dx / 2 + nx * offset, y1 + dy / 2 + ny * offset, bHeight / 2);
+        plane.userData.id = id;
+        messGroup.add(plane);
+
+        const segs = Math.floor(len / 3.5);
+        for (let i = 0; i <= segs; i++) {
+            const vf = new THREE.Mesh(new THREE.BoxGeometry(0.3, bHeight, 0.3), frameMat);
+            vf.rotation.copy(plane.rotation);
+            vf.position.set(
+                x1 + dx * (i / segs) + nx * offset,
+                y1 + dy * (i / segs) + ny * offset,
+                bHeight / 2
+            );
+            vf.userData.id = id;
+            messGroup.add(vf);
+        }
+    }
+    addGlass(-45, -5, -15, 10);   // left front
+    addGlass(15, 10, 45, -5);     // right front
+
+    // Stand the group up (extrude was along Z, rotate so Z→Y)
+    messGroup.rotation.x = -Math.PI / 2;
+
+    // Scale to campus proportions:
+    // Local:  width=90(X), depth=40(Y), height=10(Z)
+    // Target: width≈25, depth≈15, height≈5.5
+    messGroup.scale.set(0.28, 0.375, 0.55);
+    messGroup.position.set(cx, 0, cz);
+    scene.add(messGroup);
+
+    // Register all child meshes for raycasting / highlight
+    messGroup.traverse(c => {
+        if (c.isMesh) {
+            c.userData.id = id;
+            allMeshes.push(c);
+            if (!meshById[id]) meshById[id] = [];
+            meshById[id].push(c);
+        }
+    });
+}
+
+// ── BHS Boys Hostel (detailed quadrilateral courtyard from bhs_boys.html) ────
+function buildBHSBoys(id, cx, cz) {
+    const buildingGroup = new THREE.Group();
+
+    const matBrown = new THREE.MeshStandardMaterial({ color: 0xAA8B70, roughness: 0.9 });
+    const matWhite = new THREE.MeshStandardMaterial({ color: 0xF7F4E9, roughness: 0.8 });
+    const matTower = new THREE.MeshStandardMaterial({ color: 0x7E6855, roughness: 0.9 });
+    const matGlass = MAT.glass;
+
+    const bHeight = 36;
+    const floors = 6;
+    const floorHeight = bHeight / floors;
+
+    // --- Quadrilateral base ring with courtyard hole ---
+    const quadShape = new THREE.Shape();
+    quadShape.moveTo(-45, 15);
+    quadShape.lineTo(45, 15);
+    quadShape.lineTo(20, -55);
+    quadShape.lineTo(-45, -55);
+    quadShape.lineTo(-45, 15);
+
+    const courtyardHole = new THREE.Path();
+    courtyardHole.moveTo(-30, 0);
+    courtyardHole.lineTo(25, 0);
+    courtyardHole.lineTo(8, -40);
+    courtyardHole.lineTo(-30, -40);
+    courtyardHole.lineTo(-30, 0);
+    quadShape.holes.push(courtyardHole);
+
+    const extrudeSettings = { depth: bHeight, bevelEnabled: false };
+    const quadBuilding = new THREE.Mesh(new THREE.ExtrudeGeometry(quadShape, extrudeSettings), matBrown);
+    quadBuilding.rotation.x = -Math.PI / 2;
+    quadBuilding.castShadow = true;
+    quadBuilding.receiveShadow = true;
+    buildingGroup.add(quadBuilding);
+
+    // --- Windows on walls ---
+    function addWallWindows(startNode, endNode, numWindows) {
+        const pStart = new THREE.Vector3(startNode[0], 0, -startNode[1]);
+        const pEnd = new THREE.Vector3(endNode[0], 0, -endNode[1]);
+        const dir = new THREE.Vector3().subVectors(pEnd, pStart).normalize();
+        const normal = new THREE.Vector3(-dir.z, 0, dir.x);
+        const winWidth = 3, winHeight = 3.5;
+
+        for (let floor = 1; floor < floors; floor++) {
+            const floorY = floor * floorHeight;
+            for (let i = 1; i <= numWindows; i++) {
+                const t = i / (numWindows + 1);
+                const pos = new THREE.Vector3().copy(pStart).lerp(pEnd, t);
+                pos.y = floorY - 0.5;
+                pos.addScaledVector(normal, 0.1);
+                const angle = Math.atan2(normal.x, normal.z);
+
+                const frame = new THREE.Mesh(new THREE.BoxGeometry(winWidth + 0.5, winHeight + 0.5, 0.2), matWhite);
+                frame.position.copy(pos);
+                frame.rotation.y = angle;
+                buildingGroup.add(frame);
+
+                const glass = new THREE.Mesh(new THREE.PlaneGeometry(winWidth, winHeight), matGlass);
+                glass.position.copy(pos).addScaledVector(normal, 0.11);
+                glass.rotation.y = angle;
+                buildingGroup.add(glass);
+            }
+        }
+    }
+
+    // Outer walls
+    addWallWindows([-45, 15], [-45, -55], 10);
+    addWallWindows([-45, -55], [20, -55], 12);
+    addWallWindows([20, -55], [45, 15], 10);
+    // Inner courtyard walls
+    addWallWindows([-30, 0], [25, 0], 8);
+    addWallWindows([25, 0], [8, -40], 6);
+    addWallWindows([8, -40], [-30, -40], 6);
+    addWallWindows([-30, -40], [-30, 0], 6);
+
+    // --- Front facade overlay ---
+    const frontZ = -15.1;
+    const frontWidth = 90;
+
+    // Central glass column
+    const glassCol = new THREE.Mesh(new THREE.PlaneGeometry(4, bHeight), matGlass);
+    glassCol.position.set(0, bHeight / 2, frontZ - 0.1);
+    buildingGroup.add(glassCol);
+
+    // Glass column white frames
+    const lf = new THREE.Mesh(new THREE.BoxGeometry(0.5, bHeight, 1.5), matWhite);
+    lf.position.set(-2, bHeight / 2, frontZ - 0.3);
+    buildingGroup.add(lf);
+    const rf = lf.clone();
+    rf.position.set(2, bHeight / 2, frontZ - 0.3);
+    buildingGroup.add(rf);
+
+    // Horizontal floor bands
+    for (let i = 1; i < floors; i++) {
+        const hBand = new THREE.Mesh(new THREE.BoxGeometry(frontWidth - 20, 1, 1), matWhite);
+        hBand.position.set(0, i * floorHeight, frontZ - 0.2);
+        buildingGroup.add(hBand);
+    }
+
+    // Vertical pillars
+    [-28, -18, -8, 8, 18, 28].forEach(xPos => {
+        const vBand = new THREE.Mesh(new THREE.BoxGeometry(1, bHeight, 1), matWhite);
+        vBand.position.set(xPos, bHeight / 2, frontZ - 0.2);
+        buildingGroup.add(vBand);
+    });
+
+    // End towers
+    const towerWidth = 9;
+    const leftTower = new THREE.Mesh(new THREE.BoxGeometry(towerWidth, bHeight + 2, 16), matTower);
+    leftTower.position.set(-frontWidth / 2 + towerWidth / 2, bHeight / 2 + 1, frontZ - 2);
+    leftTower.castShadow = true; leftTower.receiveShadow = true;
+    buildingGroup.add(leftTower);
+
+    const rightTower = new THREE.Mesh(new THREE.BoxGeometry(towerWidth, bHeight + 2, 16), matTower);
+    rightTower.position.set(frontWidth / 2 - towerWidth / 2, bHeight / 2 + 1, frontZ - 2);
+    rightTower.castShadow = true; rightTower.receiveShadow = true;
+    buildingGroup.add(rightTower);
+
+    // Louvers on tower fronts
+    for (let i = 2; i < bHeight; i += 1.5) {
+        const louverL = new THREE.Mesh(new THREE.BoxGeometry(towerWidth - 1, 0.4, 0.5), matWhite);
+        louverL.position.set(leftTower.position.x, i, frontZ - 10.2);
+        buildingGroup.add(louverL);
+        const louverR = new THREE.Mesh(new THREE.BoxGeometry(towerWidth - 1, 0.4, 0.5), matWhite);
+        louverR.position.set(rightTower.position.x, i, frontZ - 10.2);
+        buildingGroup.add(louverR);
+    }
+
+    // Scale to campus proportions:
+    // Local: width≈90(X), depth≈70(Z), height≈36(Y)
+    // Target: w≈12, d≈10, h≈10
+    const scaleX = 12 / 90;
+    const scaleZ = 10 / 70;
+    const scaleY = 10 / 36;
+    buildingGroup.scale.set(scaleX, scaleY, scaleZ);
+    buildingGroup.rotation.y = -Math.PI / 2; // rotate 90° right
+    buildingGroup.position.set(cx, 0, cz);
+    scene.add(buildingGroup);
+
+    // Register all child meshes for raycasting / highlight
+    buildingGroup.traverse(c => {
+        if (c.isMesh) {
+            c.userData.id = id;
+            allMeshes.push(c);
+            if (!meshById[id]) meshById[id] = [];
+            meshById[id].push(c);
+        }
+    });
+
+    addLabel(id, '🏠 Brahmaputra Boys', cx, 12, cz);
+}
+
+// ── BHS Girls Hostel (U-shaped building from bhs_girls.html) ───────────
+function buildBHSGirls(id, cx, cz) {
+    const buildingGroup = new THREE.Group();
+
+    const matBrown = new THREE.MeshStandardMaterial({ color: 0xAA8B70, roughness: 0.9 });
+    const matWhite = new THREE.MeshStandardMaterial({ color: 0xF7F4E9, roughness: 0.8 });
+    const matTower = new THREE.MeshStandardMaterial({ color: 0x7E6855, roughness: 0.9 });
+    const matGlass = MAT.glass;
+
+    const bHeight = 36;
+    const floors = 6;
+    const floorHeight = bHeight / floors;
+
+    // --- U-Shape base (main block + two wings extending backward) ---
+    const uShape = new THREE.Shape();
+    uShape.moveTo(-45, 15);
+    uShape.lineTo(45, 15);
+    uShape.lineTo(45, -50);
+    uShape.lineTo(20, -50);
+    uShape.lineTo(20, -5);
+    uShape.lineTo(-20, -5);
+    uShape.lineTo(-20, -50);
+    uShape.lineTo(-45, -50);
+    uShape.lineTo(-45, 15);
+
+    const extrudeSettings = { depth: bHeight, bevelEnabled: false };
+    const uBuilding = new THREE.Mesh(new THREE.ExtrudeGeometry(uShape, extrudeSettings), matBrown);
+    uBuilding.rotation.x = -Math.PI / 2;
+    uBuilding.castShadow = true;
+    uBuilding.receiveShadow = true;
+    buildingGroup.add(uBuilding);
+
+    // --- Windows on walls ---
+    function addWallWindows(startNode, endNode, numWindows) {
+        const pStart = new THREE.Vector3(startNode[0], 0, -startNode[1]);
+        const pEnd = new THREE.Vector3(endNode[0], 0, -endNode[1]);
+        const dir = new THREE.Vector3().subVectors(pEnd, pStart).normalize();
+        const normal = new THREE.Vector3(-dir.z, 0, dir.x);
+        const winWidth = 3, winHeight = 3.5;
+
+        for (let floor = 1; floor < floors; floor++) {
+            const floorY = floor * floorHeight;
+            for (let i = 1; i <= numWindows; i++) {
+                const t = i / (numWindows + 1);
+                const pos = new THREE.Vector3().copy(pStart).lerp(pEnd, t);
+                pos.y = floorY - 0.5;
+                pos.addScaledVector(normal, 0.1);
+                const angle = Math.atan2(normal.x, normal.z);
+
+                const frame = new THREE.Mesh(new THREE.BoxGeometry(winWidth + 0.5, winHeight + 0.5, 0.2), matWhite);
+                frame.position.copy(pos);
+                frame.rotation.y = angle;
+                buildingGroup.add(frame);
+
+                const glass = new THREE.Mesh(new THREE.PlaneGeometry(winWidth, winHeight), matGlass);
+                glass.position.copy(pos).addScaledVector(normal, 0.11);
+                glass.rotation.y = angle;
+                buildingGroup.add(glass);
+            }
+        }
+    }
+
+    // U-shape perimeter windows (skipping open front facade)
+    addWallWindows([-45, 15], [-45, -50], 12);
+    addWallWindows([-45, -50], [-20, -50], 3);
+    addWallWindows([-20, -50], [-20, -5], 8);
+    addWallWindows([-20, -5], [20, -5], 6);
+    addWallWindows([20, -5], [20, -50], 8);
+    addWallWindows([20, -50], [45, -50], 3);
+    addWallWindows([45, -50], [45, 15], 12);
+
+    // --- Front facade overlay ---
+    const frontZ = -15.1;
+    const frontWidth = 90;
+
+    // Central glass column
+    const glassCol = new THREE.Mesh(new THREE.PlaneGeometry(4, bHeight), matGlass);
+    glassCol.position.set(0, bHeight / 2, frontZ - 0.1);
+    buildingGroup.add(glassCol);
+
+    // Glass column white frames
+    const lf = new THREE.Mesh(new THREE.BoxGeometry(0.5, bHeight, 1.5), matWhite);
+    lf.position.set(-2, bHeight / 2, frontZ - 0.3);
+    buildingGroup.add(lf);
+    const rf = lf.clone();
+    rf.position.set(2, bHeight / 2, frontZ - 0.3);
+    buildingGroup.add(rf);
+
+    // Horizontal floor bands
+    for (let i = 1; i < floors; i++) {
+        const hBand = new THREE.Mesh(new THREE.BoxGeometry(frontWidth - 20, 1, 1), matWhite);
+        hBand.position.set(0, i * floorHeight, frontZ - 0.2);
+        buildingGroup.add(hBand);
+    }
+
+    // Vertical pillars
+    [-28, -18, -8, 8, 18, 28].forEach(xPos => {
+        const vBand = new THREE.Mesh(new THREE.BoxGeometry(1, bHeight, 1), matWhite);
+        vBand.position.set(xPos, bHeight / 2, frontZ - 0.2);
+        buildingGroup.add(vBand);
+    });
+
+    // End towers
+    const towerWidth = 9;
+    const leftTower = new THREE.Mesh(new THREE.BoxGeometry(towerWidth, bHeight + 2, 16), matTower);
+    leftTower.position.set(-frontWidth / 2 + towerWidth / 2, bHeight / 2 + 1, frontZ - 2);
+    leftTower.castShadow = true; leftTower.receiveShadow = true;
+    buildingGroup.add(leftTower);
+
+    const rightTower = new THREE.Mesh(new THREE.BoxGeometry(towerWidth, bHeight + 2, 16), matTower);
+    rightTower.position.set(frontWidth / 2 - towerWidth / 2, bHeight / 2 + 1, frontZ - 2);
+    rightTower.castShadow = true; rightTower.receiveShadow = true;
+    buildingGroup.add(rightTower);
+
+    // Louvers on tower fronts
+    for (let i = 2; i < bHeight; i += 1.5) {
+        const louverL = new THREE.Mesh(new THREE.BoxGeometry(towerWidth - 1, 0.4, 0.5), matWhite);
+        louverL.position.set(leftTower.position.x, i, frontZ - 10.2);
+        buildingGroup.add(louverL);
+        const louverR = new THREE.Mesh(new THREE.BoxGeometry(towerWidth - 1, 0.4, 0.5), matWhite);
+        louverR.position.set(rightTower.position.x, i, frontZ - 10.2);
+        buildingGroup.add(louverR);
+    }
+
+    // Scale to campus proportions:
+    // Local: width≈90(X), depth≈65(Z), height≈36(Y)
+    // Target: w≈12, d≈10, h≈10
+    const scaleX = 12 / 90;
+    const scaleZ = 10 / 65;
+    const scaleY = 10 / 36;
+    buildingGroup.scale.set(scaleX, scaleY, scaleZ);
+    buildingGroup.rotation.y = -Math.PI / 2;
+    buildingGroup.position.set(cx, 0, cz);
+    scene.add(buildingGroup);
+
+    // Register all child meshes for raycasting / highlight
+    buildingGroup.traverse(c => {
+        if (c.isMesh) {
+            c.userData.id = id;
+            allMeshes.push(c);
+            if (!meshById[id]) meshById[id] = [];
+            meshById[id].push(c);
+        }
+    });
+
+    addLabel(id, '🏠 Brahmaputra Girls', cx, 12, cz);
 }
 
 // Tree
@@ -288,6 +717,7 @@ function wall(x1, z1, x2, z2, height = 2, thickness = 0.3) {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     scene.add(mesh);
+    return mesh;
 }
 
 // Label
@@ -468,6 +898,202 @@ function createVisitingFacultyBuilding(cx, cz) {
 
     // Add label
     addLabel(id, '🏢 Visiting Faculty', cx, height + 3, cz);
+}
+
+// =====================================================================
+// ADMIN BUILDING — M. Visvesvaraya Block: Twin Wings with Concrete Grid
+// Adapted from standalone admin.html
+// =====================================================================
+function createAdminBuilding(cx, cz) {
+    const id = 'admin_block';
+    const buildingGroup = new THREE.Group();
+
+    // Dimensions adapted for campus scale
+    const bHeight = 10;
+    const wingWidth = 16;
+    const wingDepth = 5;
+    const gap = 4;
+
+    const leftCenter = -(wingWidth / 2 + gap / 2);
+    const rightCenter = (wingWidth / 2 + gap / 2);
+
+    // Materials
+    const matConcrete = MAT.concrete;
+    const matDarkGlass = new THREE.MeshPhysicalMaterial({
+        color: 0x112233, metalness: 0.8, roughness: 0.1,
+        transmission: 0.5, transparent: true,
+        polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+    });
+    const matSign = MAT.white;
+    const matRoof = MAT.roofDark;
+
+    // PART A: Main Glass Base Blocks
+    const blockGeo = new THREE.BoxGeometry(wingWidth, bHeight, wingDepth);
+
+    const leftBlock = new THREE.Mesh(blockGeo, matDarkGlass);
+    leftBlock.position.set(leftCenter, bHeight / 2, 0);
+    leftBlock.castShadow = true;
+    leftBlock.receiveShadow = true;
+    leftBlock.userData.id = id;
+    buildingGroup.add(leftBlock);
+
+    const rightBlock = new THREE.Mesh(blockGeo, matDarkGlass);
+    rightBlock.position.set(rightCenter, bHeight / 2, 0);
+    rightBlock.castShadow = true;
+    rightBlock.receiveShadow = true;
+    rightBlock.userData.id = id;
+    buildingGroup.add(rightBlock);
+
+    // PART B: Concrete Facade Grid & X-Braces
+    function generateFacadeGrid(centerX, width, zPos) {
+        const startX = centerX - width / 2;
+        const bayWidth = 1.5;
+        const numBays = Math.floor(width / bayWidth);
+        const floors = 4;
+        const floorHeight = bHeight / floors;
+        const gridGroup = new THREE.Group();
+
+        // Vertical Fins
+        for (let i = 0; i <= numBays; i++) {
+            const fin = new THREE.Mesh(
+                new THREE.BoxGeometry(0.15, bHeight, 0.3), matConcrete
+            );
+            fin.position.set(startX + i * bayWidth, bHeight / 2, zPos);
+            fin.castShadow = true;
+            gridGroup.add(fin);
+        }
+
+        // Horizontal Floor Bands
+        for (let i = 0; i <= floors; i++) {
+            const band = new THREE.Mesh(
+                new THREE.BoxGeometry(width + 0.15, 0.2, 0.2), matConcrete
+            );
+            band.position.set(centerX, i * floorHeight, zPos);
+            band.castShadow = true;
+            gridGroup.add(band);
+        }
+
+        // X-Cross bracing on outer bays
+        const braceLen = Math.sqrt(bayWidth * bayWidth + floorHeight * floorHeight);
+        const braceGeo = new THREE.BoxGeometry(0.12, braceLen, 0.2);
+
+        function addXBrace(bayIndex, floorIndex) {
+            const bx = startX + bayIndex * bayWidth + bayWidth / 2;
+            const by = floorIndex * floorHeight + floorHeight / 2;
+            const angle = Math.atan2(floorHeight, bayWidth);
+
+            const brace1 = new THREE.Mesh(braceGeo, matConcrete);
+            brace1.position.set(bx, by, zPos);
+            brace1.rotation.z = angle;
+            gridGroup.add(brace1);
+
+            const brace2 = new THREE.Mesh(braceGeo, matConcrete);
+            brace2.position.set(bx, by, zPos);
+            brace2.rotation.z = -angle;
+            gridGroup.add(brace2);
+        }
+
+        addXBrace(1, 1); addXBrace(1, 2);
+        addXBrace(numBays - 2, 1); addXBrace(numBays - 2, 2);
+
+        return gridGroup;
+    }
+
+    const fZ = wingDepth / 2 + 0.25;
+    buildingGroup.add(generateFacadeGrid(leftCenter, wingWidth, fZ));
+    buildingGroup.add(generateFacadeGrid(rightCenter, wingWidth, fZ));
+    buildingGroup.add(generateFacadeGrid(leftCenter, wingWidth, -fZ));
+    buildingGroup.add(generateFacadeGrid(rightCenter, wingWidth, -fZ));
+
+    // PART C: Bridging Elements
+    // 1. Elevated Connecting Walkway
+    const bridge = new THREE.Mesh(
+        new THREE.BoxGeometry(gap + 0.5, 2.5, 2.5), matConcrete
+    );
+    bridge.position.set(0, bHeight * 0.625, -1);
+    bridge.castShadow = true;
+    bridge.receiveShadow = true;
+    buildingGroup.add(bridge);
+
+    const bridgeWin = new THREE.Mesh(
+        new THREE.BoxGeometry(gap, 2, 2.55), matDarkGlass
+    );
+    bridgeWin.position.set(0, bHeight * 0.625, -1);
+    buildingGroup.add(bridgeWin);
+
+    // 2. Central Entrance Canopy
+    const canopyDepth = 5;
+    const canopyWidth = gap + 2;
+
+    const canopyRoof = new THREE.Mesh(
+        new THREE.BoxGeometry(canopyWidth, 0.3, canopyDepth), matConcrete
+    );
+    canopyRoof.position.set(0, bHeight * 0.33, wingDepth / 2 + 1);
+    canopyRoof.castShadow = true;
+    buildingGroup.add(canopyRoof);
+
+    // Sign board
+    const signBoard = new THREE.Mesh(
+        new THREE.BoxGeometry(canopyWidth, 0.8, 0.2), matSign
+    );
+    signBoard.position.set(0, bHeight * 0.33 + 0.5, wingDepth / 2 + canopyDepth / 2 + 0.9);
+    signBoard.castShadow = true;
+    buildingGroup.add(signBoard);
+
+    // Canopy Pillars
+    const pGeo = new THREE.BoxGeometry(0.3, bHeight * 0.33, 0.3);
+    const pillarPositions = [
+        [-canopyWidth / 2 + 0.5, bHeight * 0.165, wingDepth / 2 + canopyDepth / 2 + 0.6],
+        [canopyWidth / 2 - 0.5, bHeight * 0.165, wingDepth / 2 + canopyDepth / 2 + 0.6],
+        [-canopyWidth / 2 + 0.5, bHeight * 0.165, wingDepth / 2 + 0.5],
+        [canopyWidth / 2 - 0.5, bHeight * 0.165, wingDepth / 2 + 0.5],
+    ];
+    pillarPositions.forEach(pos => {
+        const p = new THREE.Mesh(pGeo, matConcrete);
+        p.position.set(pos[0], pos[1], pos[2]);
+        p.castShadow = true;
+        buildingGroup.add(p);
+    });
+
+    // 3. Roof Pergola (slatted structure bridging the top gap)
+    for (let i = -2.5; i <= 2.5; i += 0.6) {
+        const slat = new THREE.Mesh(
+            new THREE.BoxGeometry(gap + 0.5, 0.1, 0.1), matConcrete
+        );
+        slat.position.set(0, bHeight, i);
+        slat.castShadow = true;
+        buildingGroup.add(slat);
+    }
+
+    // PART D: Roof Equipment (Solar Panels)
+    function addRoofEquipment(ctrX) {
+        const panels = new THREE.Mesh(
+            new THREE.BoxGeometry(wingWidth - 1.5, 0.3, wingDepth - 1.5), matRoof
+        );
+        panels.position.set(ctrX, bHeight + 0.15, 0);
+        panels.castShadow = true;
+        buildingGroup.add(panels);
+    }
+    addRoofEquipment(leftCenter);
+    addRoofEquipment(rightCenter);
+
+    // Position the whole group in campus coordinates
+    buildingGroup.position.set(cx, 0, cz);
+    buildingGroup.rotation.y = Math.PI;
+    scene.add(buildingGroup);
+
+    // Register meshes for raycasting
+    buildingGroup.traverse((child) => {
+        if (child.isMesh) {
+            child.userData.id = id;
+            allMeshes.push(child);
+            if (!meshById[id]) meshById[id] = [];
+            meshById[id].push(child);
+        }
+    });
+
+    // Add label
+    addLabel(id, '🏛️ Admin Block', cx, bHeight + 3, cz);
 }
 
 // =====================================================================
@@ -765,11 +1391,7 @@ function createHostelBuilding(id, cx, cz, fitW, fitD, labelText) {
 // 6. BUILD THE GROUND / TERRAIN
 // =====================================================================
 function buildTerrain() {
-    // Main campus ground (grass) — expanded for road-network-aligned positions
-    ground(0, -20, 500, 300, MAT.grass);
-
-    // Outer terrain
-    ground(0, -20, 1000, 600, MAT.grassDark);
+    // Outer terrain (lowest layer)
     const outerGeo = new THREE.PlaneGeometry(1000, 600);
     const outerMesh = new THREE.Mesh(outerGeo, MAT.grassDark);
     outerMesh.rotation.x = -Math.PI / 2;
@@ -777,7 +1399,15 @@ function buildTerrain() {
     outerMesh.receiveShadow = true;
     scene.add(outerMesh);
 
-    // Sandy/bare areas around construction zones
+    // Main campus ground (grass) — one layer above outer
+    const campusGeo = new THREE.PlaneGeometry(500, 300);
+    const campusMesh = new THREE.Mesh(campusGeo, MAT.grass);
+    campusMesh.rotation.x = -Math.PI / 2;
+    campusMesh.position.set(0, 0.01, -20);
+    campusMesh.receiveShadow = true;
+    scene.add(campusMesh);
+
+    // Sandy/bare areas around construction zones (above grass)
     ground(-180, -60, 45, 40, MAT.sand);
     ground(165, -50, 60, 30, MAT.dirt);
     ground(150, 60, 75, 30, MAT.sand);
@@ -923,7 +1553,7 @@ const ROAD_WIDTH = {
 };
 
 const ROAD_Y = {
-    tertiary: 0.08, service: 0.06, path: 0.05, track: 0.06, raceway: 0.07, unclassified: 0.06
+    tertiary: 0.14, service: 0.12, path: 0.10, track: 0.12, raceway: 0.13, unclassified: 0.12
 };
 
 // ── Inline road network (92 features from map_roads_only.geojson) ────
@@ -1028,7 +1658,7 @@ function buildRoads() {
         const hw   = rd.t;
         const mat  = ROAD_MAT[hw]   || MAT.road;
         const w    = ROAD_WIDTH[hw]  || 2.5;
-        const y    = ROAD_Y[hw]     || 0.06;
+        const y    = ROAD_Y[hw]     || 0.12;
 
         // Convert geo coordinates to world-space points
         const pts = rd.c.map(c => geoToWorld(c[0], c[1]));
@@ -1036,10 +1666,8 @@ function buildRoads() {
         // Create road ribbon mesh
         createRoadRibbon(pts, w, mat, y);
 
-        // Add center-line dashes for tertiary (main) roads
-        if (hw === 'tertiary') {
-            createRoadDashes(pts, y + 0.01);
-        }
+        // Add center-line dashes for all roads/paths
+        createRoadDashes(pts, y + 0.01);
     });
 
     // Parking areas (kept from original layout) — X coords & widths ×1.5
@@ -1087,11 +1715,15 @@ function buildAllBuildings() {
         ['Entrance', 'Indus Valley', 'Iconic']);
     // Gate bar spans the campus entrance (≈12 units wide), centered on the road junction
     box('main_gate', -4, -123, 14, 4, 3, MAT.gate);
-    // Four pyramid pillars flanking the entrance
-    pillar(-10, -123, 2, 2, 14, MAT.gate);
-    pillar(-6, -123, 2, 2, 14, MAT.gate);
-    pillar(-2, -123, 2, 2, 14, MAT.gate);
-    pillar(2, -123, 2, 2, 14, MAT.gate);
+    // Four pyramid pillars flanking the entrance — register for selection
+    [pillar(-10, -123, 2, 2, 14, MAT.gate),
+     pillar(-6, -123, 2, 2, 14, MAT.gate),
+     pillar(-2, -123, 2, 2, 14, MAT.gate),
+     pillar(2, -123, 2, 2, 14, MAT.gate)].forEach(m => {
+        m.userData.id = 'main_gate';
+        allMeshes.push(m);
+        meshById['main_gate'].push(m);
+    });
     addLabel('main_gate', '🏛️ Main Gate', -4, 18, -123);
     origColor['main_gate'] = 0xb89a6a;
 
@@ -1099,7 +1731,11 @@ function buildAllBuildings() {
     reg('gate_plaza', 'Gate Plaza & Security', 'infrastructure',
         'Entry plaza with security booth, visitor registration, and vehicle checking.',
         ['Security', 'Entry', 'Parking']);
-    ground(-17, -137, 20, 6, MAT.sidewalk);
+    const plazaGround = ground(-17, -137, 20, 6, MAT.sidewalk);
+    plazaGround.userData.id = 'gate_plaza';
+    allMeshes.push(plazaGround);
+    if (!meshById['gate_plaza']) meshById['gate_plaza'] = [];
+    meshById['gate_plaza'].push(plazaGround);
     box('gate_plaza', -11, -127, 3, 3, 3, MAT.concrete);
     box('gate_plaza', 3, -127, 3, 3, 3, MAT.concrete);
     origColor['gate_plaza'] = 0xe8e0d4;
@@ -1160,7 +1796,10 @@ function buildAllBuildings() {
     reg('parking', 'Parking Area', 'infrastructure',
         'Open parking lot between hostel and department zones.',
         ['Parking', 'Vehicles']);
-    ground(-75, -58, 12, 8, MAT.parking);
+    const parkingMesh = ground(-75, -58, 12, 8, MAT.parking);
+    parkingMesh.userData.id = 'parking';
+    allMeshes.push(parkingMesh);
+    meshById['parking'] = [parkingMesh];
     addLabel('parking', '🅿️ Parking', -75, 2, -58);
     origColor['parking'] = 0x484848;
 
@@ -1179,6 +1818,13 @@ function buildAllBuildings() {
     box('dept_2', -35, -58, 14, 14, 13, MAT.academicB);
     addLabel('dept_2', '🏫 SS Bhatnagar', -35, 16, -58);
     origColor['dept_2'] = 0xd8cfc0;
+
+    // Admin — Administrative Block (between SS Bhatnagar and JC Bose)
+    reg('admin_block', 'Administrative Block', 'admin',
+        'Main administrative building — Director\'s office, registrar, academic section, and administrative offices.',
+        ['Admin', 'Office', 'Administration']);
+    createAdminBuilding(-2, -58);
+    origColor['admin_block'] = 0xd4ccc0;
 
     // D3 — Department 3
     reg('dept_3', 'JC Bose Block', 'academic',
@@ -1200,27 +1846,27 @@ function buildAllBuildings() {
     // ROW 2 — H4-H6, MESS, UT, MC, WORKSHOP, CAFETERIA, LHC, A, LIB, VF
     // =====================================================================
 
-    // H5 — Hostel 5 (below H1)
+    // H5 — Hostel 5 (below H1) — Detailed U-shaped building
     reg('hostel_5', 'Brahmaputra Girls Hostel', 'hostel',
-        'Brahmaputra Girls Hostel — student hostel in the lower-left residential area.',
+        'Brahmaputra Girls Hostel — U-shaped building with open courtyard, detailed facade, towers, and glass features.',
         ['Hostel', 'Residential']);
-    createHostelBlock('hostel_5', -139, -27, 10, 8, 10, '🏠 Brahmaputra Girls');
-    origColor['hostel_5'] = 0xd4c4a8;
+    buildBHSGirls('hostel_5', -139, -27);
+    origColor['hostel_5'] = 0xAA8B70;
 
-    // H4 — Hostel 4 (below H2)
+    // H4 — Hostel 4 (below H2) — Detailed quadrilateral courtyard building
     reg('hostel_4', 'Brahmaputra Boys Hostel', 'hostel',
-        'Brahmaputra Boys Hostel — student hostel in the lower-left residential area.',
+        'Brahmaputra Boys Hostel — quadrilateral courtyard building with detailed facade, towers, and glass features.',
         ['Hostel', 'Residential']);
-    createHostelBlock('hostel_4', -147, -15, 10, 8, 10, '🏠 Brahmaputra Boys');
-    origColor['hostel_4'] = 0xc8b898;
+    buildBHSBoys('hostel_4', -147, -15);
+    origColor['hostel_4'] = 0xAA8B70;
 
-    // Mess — Dining Hall
+    // Mess — Dining Hall (detailed structure from satellite imagery)
     reg('mess', 'Mess / Dining Hall', 'dining',
-        'Main dining facility for hostel residents — breakfast, lunch, dinner.',
+        'Main dining facility for hostel residents — breakfast, lunch, dinner. Two symmetrical wings with a central gate entrance, glass facades, and roof canopy.',
         ['Food', 'Mess', 'Dining']);
-    box('mess', -110, -15, 14, 10, 5, MAT.brick);
-    addLabel('mess', '🍽️ Mess', -110, 8, -15);
-    origColor['mess'] = 0xc4956a;
+    buildMessComplex('mess', -110, -18);
+    addLabel('mess', '🍽️ Mess', -110, 8, -18);
+    origColor['mess'] = 0xe8e0d4;
 
     // UT — Utility Block
     reg('utility', 'Utility Block', 'infrastructure',
@@ -1303,7 +1949,12 @@ function buildAllBuildings() {
     ground(-48, 67, 8, 14, MAT.sand);
     // Court lines
     box(null, -48, 67, 7.5, 13.5, 0.02, MAT.white, false);
-    const vgMesh = ground(-48, 67, 8, 14, MAT.field);
+    const vgGeo = new THREE.PlaneGeometry(8, 14);
+    const vgMesh = new THREE.Mesh(vgGeo, MAT.field);
+    vgMesh.rotation.x = -Math.PI / 2;
+    vgMesh.position.set(-48, 0.08, 67);
+    vgMesh.receiveShadow = true;
+    scene.add(vgMesh);
     vgMesh.userData.id = 'volleyball';
     allMeshes.push(vgMesh);
     meshById['volleyball'] = [vgMesh];
@@ -1316,7 +1967,12 @@ function buildAllBuildings() {
         ['Basketball', 'Sports']);
     ground(-34, 70, 12, 16, MAT.sand);
     box(null, -34, 70, 11.5, 15.5, 0.02, MAT.white, false);
-    const bgMesh = ground(-34, 70, 12, 16, MAT.field);
+    const bgGeo = new THREE.PlaneGeometry(12, 16);
+    const bgMesh = new THREE.Mesh(bgGeo, MAT.field);
+    bgMesh.rotation.x = -Math.PI / 2;
+    bgMesh.position.set(-34, 0.08, 70);
+    bgMesh.receiveShadow = true;
+    scene.add(bgMesh);
     bgMesh.userData.id = 'basketball';
     allMeshes.push(bgMesh);
     meshById['basketball'] = [bgMesh];
@@ -1330,7 +1986,12 @@ function buildAllBuildings() {
     ground(45, 82, 24, 16, MAT.field);
     box(null, 33, 82, 0.3, 16, 3, MAT.white, false);   // left goal
     box(null, 57, 82, 0.3, 16, 3, MAT.white, false);   // right goal
-    const fgMesh = ground(45, 82, 24, 16, MAT.grassLight);
+    const fgGeo = new THREE.PlaneGeometry(24, 16);
+    const fgMesh = new THREE.Mesh(fgGeo, MAT.grassLight);
+    fgMesh.rotation.x = -Math.PI / 2;
+    fgMesh.position.set(45, 0.08, 82);
+    fgMesh.receiveShadow = true;
+    scene.add(fgMesh);
     fgMesh.userData.id = 'football';
     allMeshes.push(fgMesh);
     meshById['football'] = [fgMesh];
@@ -1344,7 +2005,7 @@ function buildAllBuildings() {
     const cricketGeo = new THREE.CircleGeometry(14, 32);
     const cricketMesh = new THREE.Mesh(cricketGeo, MAT.field);
     cricketMesh.rotation.x = -Math.PI / 2;
-    cricketMesh.position.set(45, 0.05, 120);
+    cricketMesh.position.set(45, 0.08, 120);
     cricketMesh.receiveShadow = true;
     cricketMesh.userData.id = 'cricket';
     scene.add(cricketMesh);
@@ -1360,10 +2021,16 @@ function buildAllBuildings() {
     reg('boundary', 'Campus Boundary Wall', 'infrastructure',
         'Perimeter boundary wall of the 525-acre permanent campus.',
         ['Boundary', 'Wall', 'Perimeter']);
-    wall(-200, -140, 200, -140, 2.5, 0.4);  // North wall
-    wall(-200, 150, 200, 150, 2.5, 0.4);    // South wall
-    wall(-200, -140, -200, 150, 2.5, 0.4);  // West wall
-    wall(200, -140, 200, 150, 2.5, 0.4);    // East wall
+    meshById['boundary'] = [];
+    [wall(-200, -140, 200, -140, 2.5, 0.4),  // North wall
+     wall(-200, 150, 200, 150, 2.5, 0.4),    // South wall
+     wall(-200, -140, -200, 150, 2.5, 0.4),  // West wall
+     wall(200, -140, 200, 150, 2.5, 0.4)     // East wall
+    ].forEach(m => {
+        m.userData.id = 'boundary';
+        allMeshes.push(m);
+        meshById['boundary'].push(m);
+    });
     origColor['boundary'] = 0xe8e0d4;
 
     // =====================================================================
@@ -1371,30 +2038,12 @@ function buildAllBuildings() {
     // =====================================================================
     /*
     // --- Academic Row (z ≈ 0) --- named blocks along SROW
-    reg('ramanujan', 'S. Ramanujan Block', 'academic', '...', ['Mathematics']);
-    box('ramanujan', -42, 0, 20, 8, 12, MAT.academic);
-    addLabel('ramanujan', '📐 Ramanujan Block', -42, 16, 0);
-    origColor['ramanujan'] = 0xe0d8cc;
-
-    reg('bhatnagar', 'S. Bhatnagar Block', 'academic', '...', ['Chemistry']);
-    box('bhatnagar', -8, 0, 16, 8, 12, MAT.academicB);
-    addLabel('bhatnagar', '🧪 Bhatnagar Block', -8, 16, 0);
-    origColor['bhatnagar'] = 0xd8cfc0;
-
-    reg('jcbose', 'J.C. Bose Block', 'academic', '...', ['Physics']);
-    box('jcbose', 12, 0, 12, 8, 12, MAT.academic);
-    addLabel('jcbose', '📡 J.C. Bose Block', 12, 16, 0);
-    origColor['jcbose'] = 0xe0d8cc;
 
     reg('visvesvaraya', 'M. Visvesvaraya Block', 'academic', '...', ['Mechanical']);
     box('visvesvaraya', 31, 0, 16, 8, 12, MAT.academicB);
     addLabel('visvesvaraya', '⚙️ Visvesvaraya Block', 31, 16, 0);
     origColor['visvesvaraya'] = 0xd8cfc0;
 
-    reg('satish_dhawan', 'Satish Dhawan Block', 'academic', '...', ['Aerospace']);
-    box('satish_dhawan', 63, 0, 12, 8, 12, MAT.academic);
-    addLabel('satish_dhawan', '🚀 Satish Dhawan', 63, 16, 0);
-    origColor['satish_dhawan'] = 0xe0d8cc;
 
     reg('khorana', 'Har Gobind Khorana Block', 'academic', '...', ['Biomedical']);
     box('khorana', 77, 0, 12, 8, 12, MAT.academicB);
@@ -1510,13 +2159,16 @@ function selectBuilding(id) {
         });
     }
 
-    // Fly camera
+    // Fly camera — use world position (handles grouped/scaled meshes)
     const meshes = meshById[id];
     if (meshes && meshes.length > 0) {
-        const pos = meshes[0].position;
+        const bbox = new THREE.Box3();
+        meshes.forEach(m => bbox.expandByObject(m));
+        const center = new THREE.Vector3();
+        bbox.getCenter(center);
         animateCamera(
-            new THREE.Vector3(pos.x + 25, pos.y + 30, pos.z + 30),
-            new THREE.Vector3(pos.x, pos.y, pos.z)
+            new THREE.Vector3(center.x + 25, center.y + 30, center.z + 30),
+            center
         );
     }
 
@@ -1603,6 +2255,12 @@ document.getElementById('searchBox').addEventListener('input', e => populateList
 // =====================================================================
 // 16. HEADER BUTTONS
 // =====================================================================
+
+// Sidebar toggle
+document.getElementById('btnSidebar').addEventListener('click', () => {
+    document.getElementById('sidePanel').classList.toggle('collapsed');
+});
+
 document.getElementById('btnReset').addEventListener('click', () => {
     if (selectedId && meshById[selectedId]) {
         meshById[selectedId].forEach(m => {
